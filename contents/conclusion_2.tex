@@ -1,0 +1,44 @@
+\chapter{Conclusion}
+
+The deployment of the Cherenkov Telescope Array project will ring in a new era of Cherenkov astronomy. 
+Its unprecedented size brings new challenges to every aspect of traditional IACT analysis. 
+This second part of my thesis shows that a fully open, reproducible and configurable 
+analysis pipeline matches the performance of the previous CTA reference analysis. 
+
+The development of \ctapipe as an open-source tool is a paradigm shift in the history of very-high-energy physics. 
+The \ctapipe project is a chance to bundle the expert knowledge from multiple telescope collaborations
+into a single place. I contributed to \ctapipe implementation that performs the directional reconstruction 
+of air showers. The resulting angular resolution as seen in \cref{fig:ang_res_optimized}
+closely follows that of the reference analysis. 
+To ensure reproducibility for the processing, I used the methods provided by \ctapipe 
+to implement a configurable pipeline which reads simulated CTA data and performs all steps necessary
+to perform background suppression and energy estimation. 
+As of yet, no official data format has been agreed on to store the results produced by \ctapipe. 
+I used a column-based storage with unique identifiers on each row that allows 
+me to perform database-like queries on the data.
+We developed the \aicttools package to handle the common machine-learning tasks encountered in IACT analysis.
+Efficient background suppression and energy estimation is maybe the most challenging part of any IACT analysis.
+In order to supply the multivariate methods with as much information as possible, the models were trained 
+using per-telescope as well as array-wide features. 
+The \aicttools support this by joining two tables before handing them to the model.
+For application to CTA data special care needs to be taken in order to ensure data consistency
+as the data can only be read in a batch-wise manner.
+The \aicttools perform remarkably well on CTA data as shown in \cref{fig:roc}. 
+% As argued in the text, it is not easy to compare results between different analyses at this point. 
+% Especially considering the fact that I use no pre-selection criteria to remove 
+
+The final benchmark for any CTA analysis is the sensitivity curve.
+The reference values published by CTA are computed with proprietary software from the \magic and \veritas 
+collaborations, for which no detailed documentation is available. 
+I built an open-source toolkit to compute sensitivity curves and detection significances on a per-event basis.    
+The resulting sensitivity curve is shown in \cref{fig:sensitivity}. 
+The image shows that the analysis I developed for my thesis performs just as well or event better than the reference. 
+
+The future development of \ctapipe needs to concentrate on the definition of file formats so that 
+an entire processing pipeline can be implemented. Once that is achieved, an official benchmark has to be defined 
+in order to make different analyses comparable with each other. 
+The performance of the \aicttools on CTA data could be improved in a future iteration by applying two nested models on the data: one on 
+a per-telescope level, and one that summarizes the result of the single-telescope predictions for the entire array-event. 
+A new production of CTA simulations has recently been started. This simulation has been adapted with data from the prototype 
+telescopes that have been deployed during the last two years. 
+CTA now has the chance to compute the next official performance numbers using a fully reproducible and open-source pipeline. 

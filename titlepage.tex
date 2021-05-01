@@ -1,0 +1,52 @@
+\documentclass[paper=a4, DIV=100]{scrbook}
+\usepackage{tikz}
+\usepackage{setspace}
+\usepackage{fontspec}
+\setmainfont{Minion Pro}
+
+\title{Unmasking the Gamma-Ray Sky}
+\subtitle{Comprehensive and Reproducible Analysis for Cherenkov Telescopes}
+\author{Kai Brügge}
+
+\begin{document}
+\begin{titlepage}
+    \tikz[remember picture,overlay] \node[opacity=0.2,inner sep=15pt] at (current page.center){\includegraphics[width=0.94\paperwidth,height=0.94\paperheight]{figures/contours_lst.jpg}};%
+    \tikz[remember picture,overlay] \node[inner sep=15pt, anchor=north east] at (current page.north east){\hspace{-15em}\includegraphics[width=0.4\paperwidth]{figures/tudo_logo.jpg}};%
+    \vspace*{8cm}
+    \makeatletter
+    \begin{center}
+    {\setstretch{1.3}
+            
+      \begin{Huge}
+        \@title
+      \end{Huge}\\[0.2cm]
+      %
+      \begin{Large}
+        \@subtitle
+      \end{Large}\\
+      %
+      \emph{by}\\
+      \@author
+      \par}
+
+      \vspace{10cm}
+    {\setstretch{1.1}  
+      A document submitted in partial fulfillment
+      of the requirements for the degree of\\
+      \emph{Dr. rer. nat.}\\
+      at\\
+      \textsc{Technische Universität Dortmund}
+      
+      \vspace{3.cm}
+      Supervised by \\
+    Prof.\,Dr.\,Dr.\,Wolfgang Rhode\,  and\,   Prof.\,Dr.\,Kevin Kröninger
+
+    \par}
+
+
+    \end{center}
+    
+    \makeatother
+  \end{titlepage}
+
+\end{document}

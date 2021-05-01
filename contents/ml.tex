@@ -1,0 +1,526 @@
+\newcommand{\mbf}[1]{\mathbf{#1}}
+\newcommand{\yhat}{\hat{y}}
+\newcommand{\ghat}{\hat{g}}
+\newcommand{\data}{\mathbf{X}}
+\newcommand{\truth}{\mathbf{y}}
+\newcommand{\traindata}{\mathbf{X}_{\text{train}}}
+\newcommand{\testdata}{\mathbf{X}_{\text{test}}}
+\newcommand{\trainlabel}{\mathbf{y}_{\text{train}}}
+\newcommand{\testlabel}{\mathbf{y}_{\text{test}}}
+\newcommand{\column}{\mathbf{x}}
+\newcommand{\prediction}{\hat{\mathbf{{y}}}}
+\chapter{Machine Learning}
+\label{ch:ml}
+Machine learning for this CTA analysis is used for energy estimation of the primary gamma ray and background suppression.
+As mentioned in \cref{sec:iact}, cosmic-ray showers, i.e. hadronic showers, build the main 
+background component in IACT data. A model which can separate air-showers induced by gamma rays from those started by hadrons,
+boosts the detection significance of an IACT considerably. 
+Energy estimation is necessary to learn about a sources energy spectrum and the acceleration mechanisms taking place in it.
+From simulated data, where the true values for the particles type and energy are available, a model can be built 
+which takes image parameters as input and predicts the output values on new, unlabeled, observations. 
+
+In the early days of IACT analysis, these model functions weere often hand-crafted.
+For background suppression a set of \emph{cuts} were defined in the image parameter space. 
+By looking at the distribution of the hillas parameters for simulated gamma rays and protons, the location of a cut can be 
+fixed and then applied to observed data. 
+The \hegra analysis from 2004~\cite{hegra-crab-data}, for example, used a simple cut in the width of the Hillas ellipse to reduce the 
+amount of background events in their data. 
+Energy estimation for \hegra used a similar approach. Correlation plots between image parameters and true energy were used 
+to find the shape of analytical function whose parameters $\mathbf{p}$ were fitted.
+These approaches are flawed. The choice of parameters in which to place the cuts and the choice of analytical functions for energy 
+estimation is utterly subjective. Not to mention the fact that the capacity of human brains to work in many dimensions is limited.
+These shortcomings can be overcome by supervised machine-learning algorithms.
+
+Here I mostly follow the notations and definitions from the book \enquote{Elements of statistical Learning} by Trevor Hastie and others~\cite{hasties}.
+Given a set of $N$ observations with $p$ variables the matrix $\data$ 
+contains the full information needed to train a machine-learning model. In this so-called \emph{data matrix}
+each column corresponds to an observed variable. Each row maps to a specific observation.
+The columns in $\data$ are called differently depending on context and personal preference. 
+Common choices are observables, variables or features. 
+One specific observation $x \in \data$ is written as a small letter. 
+The $j$\th entry, or feature, in one observation is indexed by $x^{(j)}$.
+In a similar manner,
+a single uppercase letter such as $X$ denotes a generic random variable.
+The $i$\th observed value of $X$ is written as $x_i$. 
+Vectors containing entries for each of the $N$ observations are set in bold lowercase $\column$.
+In this specific use case, the columns in $\data$ map to the image parameters and the rows to the observed air showers. 
+If $X_{w}$ is the random variable describing underlying the distribution of observed Hillas widths, then
+$x^{(w)}_{i}$ is the Hillas width from one observed air shower in one telescope and $\mbf{x}^{(w)}$ is the vector containing all observed Hillas widths.
+For the each observation we also have an associated \emph{output} or \emph{truth} $y$ stored in the vector $\truth$.
+The true label values in the CTA simulations come in two distinct forms. 
+The energy of a particle $y \in \mathbb{R}$ is a continuous parameter, 
+whereas the type of the particle is a discrete variable that can take only one of two values $g \in \{\text{gamma}, \text{hadron}\}$.
+The labels values are encoded as numbers by convention so that $g \in \{0, 1\}$.
+For the sake of simplicity I do not always differentiate between the continuous $y$ and the categorical $g$ in some of the following definitions.
+Roughly following the definition in~\cite[10]{hasties} we can now specify the task of supervised machine learning as follows:
+\begin{quote}
+    Given a $N \times p$ matrix $\data$ and some associated output vector $\truth \in \mathbb{R}^N$,
+    find the function $f(\data) = \prediction$ that takes a vector $\data \in \mathbb{R}^p$ and returns a prediction for $\truth$
+    and minimizes some \enquote{loss function} $L(\truth, f(\data))$ over the data and the true label. 
+\end{quote}
+If $\truth$ is continuous, then $f$ is called a \emph{regressor}. If $\truth$ is categorical, then $f$ is called a \emph{classifier}.
+In this formulation supervised machine learning can be understood as a global optimization problem. 
+The space of possible solutions has to be constrained to find valid solutions with any predictive power.
+Usually, the shape of the function $f$ is fixed for a machine-learning algorithm. It is parameterized in some form by a vector $\beta$ 
+whose entries are found by minimization with respect to the loss. This step is often called \emph{training} the 
+classifier or regressor.
+
+The textbook example for a choice of $f$ and $L$ is the least-squares regressor~\cite[11]{hasties} which exemplifies some of the important properties 
+of supervised machine-learning methods.
+Assuming $f$ is a linear function in the data $\data$ then it can be written as 
+\begin{equation*}
+    f(\data; \beta) = \prediction =  \beta_0 + \sum_{j=1}^p \column^{(j)} \beta_j.
+\end{equation*}
+The loss function for the least-squares method is the residual sum of squares which can be written as
+\begin{equation*}
+    L(\truth, f(\data), \beta) = \sum_{i=1}^N (y_i - f(x_i; \beta))^2 = \sum_{i=1}^N (y_i - x_i \beta)^2,
+\end{equation*}
+where the data matrix was implicitly modified to contain series of ones $(1, 1,...,1)$ as the first column and $\beta$ is a column vector $\beta=(\beta_0, \beta_1, \ldots, \beta_p)^\top$.
+From this expression an analytical solution for $\hat{\beta} = \argmin_{\beta} L(\truth, f(\data), \beta)$
+can be found by setting the derivative with respect to $\beta$ equals zero
+\begin{align*}
+    \dddp{L}{\beta} \stackrel{!}{=} 0 &= \ddp{\beta} \sum_{i=1}^N (y_i - x_i \beta)^2 \\
+                                      &=  -2 \cdot \sum_{i=1}^N x_i (y_i - x_i \beta)  \\
+                                      &=  2 \cdot {\data}^{\top} (\truth - \data \beta).
+\end{align*}
+Solving for $\beta$ yields 
+\begin{equation*}
+    \hat{\beta} = ({\data}^\top \data)^{-1} {\data}^\top \truth.
+\end{equation*}
+% The regressor can now predict the value of $\yhat$ 
+The linear least-squares method essentially fits in hyperplane in the parameter space spanned by the provided data and true label $y$.
+If the values of $\truth$ are continuous, then $\prediction = f(\data; \hat{\beta})$ is the result of the regressor and can be used as is.
+In the case of classification, the fitted hyperplane, or the function $f(\data; \hat{\beta})$, can be used to define a decision boundary or threshold $\alpha$. 
+The classification function is then defined as 
+\begin{equation*}
+    \hat{g}_i = f'(x_i; \hat{\beta}) = \begin{cases}
+        0, & \text{if } \; f(x_i, \hat{\beta}) < \alpha \\
+        1, & \text{else.}
+    \end{cases}    
+\end{equation*}
+In case the true label for the binary classification problem $g$ or $y$ was encoded using values $\{0, 1\}$, then 
+the canonical value for the threshold is  $\alpha = 0.5$.
+The decision boundary is hence defined by all points where $f(\data; \hat{\beta}) = 0.5$.
+Intuitively speaking, new observations are classified based on their location relative to the fitted hyperplane. 
+The distance of a new observation to the decision boundary can be understood as a measure of \enquote{certainty} of the point belonging to either class. 
+\Cref{fig:boundary} shows an artificial dataset on which a least-square regressor was trained. 
+The points in the figure are colored to indicate the class to which they belong. 
+It is also obvious from the figure that the raw output of the least-square regressor is not a proper probability density as it is neither bounded nor normalized. 
+This makes the interpretation of the regressors output difficult to interpret.
+It can, however, be transformed into a value range resembling a probability density by wrapping the output of 
+the least-squares predictor in a so-called sigmoid function $S(f(\data; \hat{\beta}))$
+\begin{wrapfigure}{o}{0.5\linewidth}
+    \centering
+    \includegraphics{build/boundary.pdf}
+    \caption[Least squares machine learning example]{The transparent plane in the figure shows the result of a least-squares fit to the data.
+    }
+    \label{fig:boundary}
+\end{wrapfigure}
+The family of sigmoid functions is loosely defined by their properties to be 
+monotonically increasing and bounded by horizontal asymptotes %, i.e. $S(m_1) \leq S(m_2)$ if $m_1 < m_2$,
+for $m \rightarrow \pm \infty$.
+The error function shown in \cref{fig:erf} is an example of a sigmoid function.
+If the sigmoid function is bounded by 0 and 1,
+the output of $S(f(x_i; \hat{\beta}))$ can be interpreted as a probability density.
+Note that this is different from a \emph{confidence level} for the prediction.
+Adjusting the classifier output to resemble a confidence is the topic of \enquote{classifier calibration}~\cite{calibration1, calibration2}.
+Like the least-squares approach, most classification algorithms provide a continuous output which is either bounded or can be wrapped 
+by a sigmoid function.
+The adaption of the decision threshold $\alpha$ is a key component in the analysis of IACT data.
+As explained in \cref{sec:bg_estimates}, IACT data is heavily contaminated by cosmic-ray background. 
+By increasing the prediction threshold the amount of background events can be reduced. This naturally comes with an 
+inevitable decrease in selected signal events. The choice of $\alpha$ is optimized for different physics use cases.
+In \cref{ch:sensi} the prediction threshold will be optimized for the detection of gamma-ray point sources. 
+The correct way to validate one's classification model is often hotly debated within physics research groups.
+The validation methods I use for the CTA analysis are described in \cref{sec:validation}.
+\Cref{sec:trees} explains the basics of decision tree algorithms on which both the background suppression and energy estimation are based. 
+Results of the training and the application of the models to CTA data is shown in \cref{sec:results}.
+\Cref{sec:aict} describes the software we developed to create a reproducible machine-learning pipeline for the CTA and \fact telescopes. 
+
+
+\section{Model Validation}
+\label{sec:validation}
+Models for classification or regression can only be properly evaluated on labeled data.
+Some machine-learning algorithms tend to \emph{overfit} on the training data. 
+While the models minimize the loss $L$ on the training data to a great extend, it does not generalize well to new data.
+In other words, it has weak predictive power on hold-out data.
+In literature this problem is known as bias-variance tradeoff, overtraining, or \emph{overfitting}.
+A model fitted on some training data $\traindata$ with label $\trainlabel$ needs to be applied to an independent dataset $\testdata$
+that comes with an associated label $\testlabel$ in order to get an estimate of it generalization capabilities.
+
+A classifier's performance in terms of predictive power is estimated from its \emph{confusion matrix}.   
+In a classification problem with two categories, like the distinction of gamma-ray air showers from hadronic ones, 
+the two classes are called  \enquote{positive} and \enquote{negative} per convention. 
+In IACT analysis the positive class is usually understood to be the gamma-ray events.  
+The result of the model validation for a binary classification problem contains four numbers.
+The number of \emph{true positives} ($TP$) which are the events that have correctly been predicted to belong to the positive class, i.e. the number of correctly identified gamma rays.
+The amount of \emph{false positives}, ($FP$) the events that have incorrectly been predicted to belong to the positive class, i.e. the number of hadronic events 
+that have been falsely classified as gamma-ray events. The number of \emph{true negatives} ($TN$) and \emph{false negatives} ($FN$) are defined accordingly.
+These four numbers, that make up the confusion matrix, completely characterize a classifier's prediction.
+A myriad of scalar quantities that try to summarize the classification can be derived from the entries in the confusion matrix. 
+Popular choices include the accuracy, precision, F-score, recall or true positive rate, and the false positive rate just to name a few. 
+Each come with their own advantages and disadvantages. 
+The extremely common \emph{accuracy} measure, for example, is defined 
+as 
+\begin{equation*}
+    \operatorname{acc} = \frac{TP + TN}{TP + FP + TN + FN},    
+\end{equation*}
+i.e. the ratio of correctly identified events with respect to the entire population.
+The accuracy is only useful in the case of balanced datasets where both classes are represented by an equal amount of data points.
+For imbalanced datasets the accuracy alone does provide a good estimate on the classifiers \enquote{quality}.
+The balanced accuracy on the other hand is defined in terms of true positive and true negative rates instead of the absolute numbers
+\begin{equation*}
+    \operatorname{acc_{\text{bal}}} = \frac{TPR + TNR}{2}   
+\end{equation*}
+and is therefore not influenced by unbalanced class ratios.
+In the case of IACT analysis datasets are often imbalanced. 
+The observed data contains orders of magnitude more background events than gamma-ray showers. 
+The accuracy on the simulated data in itself does not help to gauge the performance of a telescope. 
+
+
+A popular method for calculating performance estimates is called cross-validation. 
+A $k$-fold cross validation splits the training data into $k$ independent subsets.
+One of the $k$ subsets is used as a validation set for a model that is trained on the union of the remaining $k{}-{}1$ subsets.
+During cross-validation the model is trained and evaluated $k$ times. 
+This yields $k$  estimations of an algorithm's classification performance on a specific training dataset. 
+This allows for robust error estimates on the entries in the confusion matrix. 
+It does, however, increase the runtime of the model training by a factor of $k$.
+The increased runtime of the training step is tolerable considering that the application of the trained model to the CTA data takes about ten times as much time.
+This is due to the fact that the largest part of the datasets presented in \cref{tab:datasets} is used to estimate the point-source sensitivity of CTA which will be the topic 
+of \cref{ch:sensi}. 
+Only a small part of the diffuse gammas and protons is used to train the classifier and energy estimator. It is this smaller sample which is split during cross validation. 
+
+ 
+For the CTA analysis I use the cross-validated receiver operating characteristic (ROC) to gauge the performance of my classification.
+The ROC curve is produced by drawing the false positive rate ($FPR$) versus the true positive rate ($TPR$) 
+while varying the prediction threshold $\alpha$. The $TPR$ and $FPR$ for a fixed $\alpha$ are defined as 
+\begin{equation*}
+        TPR_{\alpha} =  \frac{TP}{FN} \text{\quad and \quad} FPR_{\alpha} = \frac{FP}{FP + TN}
+\end{equation*}
+and are therefore independent of class balance. This curve is monotonically increasing towards larger values of $FPR$. 
+Instead of comparing the ROC curves themselves, different classifiers trained on the same data can be compared by the area under their respective ROC curve. 
+A hypothetically perfect classifier would create no false positives and classify only true positives. Hence, the ROC curve for the perfect 
+has a constant value and the area under the curve (AuC) would equal one.
+A classifier that only randomly selects an outcome, would create a diagonal line with an AuC of 0.5.
+The ROC and the AuC are no perfect benchmarks. Their validity has long been the spotlight of discussions in the machine-learning community
+There are plenty of alternative suggestions. See~\cite{roc_auc_bad} for an example.
+When large datasets are available, which is the case for CTA analysis, these problems are somewhat diminished.
+Within CTA, the ROC AuC is used to the classification strengths of competing methods for background suppression. 
+
+For regression problems no confusion matrix in the classification sense can be constructed. 
+Instead a matrix showing the correlation between the true label $\truth$  and the prediction $\prediction$ is created on an independent test dataset. 
+A perfect regressor would only have entries on the diagonal of that matrix. To express the quality of the regression in one number, the 
+coefficient of determination or $R^2$ score is often used. The $R^2$ score is calculated from the residual sum of squares $RSS = \sum_i (y_i - \yhat_i)^2$ as used for 
+the least-squares loss and the variance of the target variable $\truth$.
+The definition of the $R^2$ square is 
+\begin{equation*}
+    R^2 = 1 - \frac{RSS(\truth, \prediction)}{ N \operatorname{Var}(\truth)},
+\end{equation*}
+where $N$ is the number of entries in $\truth$.
+It can be understood as a \emph{goodness of fit} where a value of 1 indicates a perfect match between regressor and truth. If the regressor, on average, predicts 
+the mean of the target, then the $R^2$ score will have a value of 0~\cite[486]{stats_devore}. 
+For IACT analysis the $R^2$ score is not sufficient to explain the quality of the energy estimation.
+Equivalently to the calculation of the angular resolution, the relative difference between the predicted and true energy is calculated
+for bins in estimated or true energy.
+%  The result of the energy estimation for CTA is shown in \cref{sec:results}.
+
+\section{Decision Trees and Ensemble Learning}
+\label{sec:trees}
+Methods like least-squares or neural networks try to find the global minimum of a loss function which was in itself defined over the entire parameter space.
+Often it is not possible to find a satisfactory solution without further assumptions about the shape of the parameter space.
+The idea behind decision trees is to split the parameter space into subspaces where the problem is potentially easier to solve~\cite[305]{hasties}.
+% The assumption is that the true target distribution can be approximated by series of constant values.
+In each of the subspaces the loss function is then optimized independent of the data in the other subspaces. 
+If no satisfactory value of the loss function is found, the subspaces are split again into even smaller sub-subspaces.
+Once the partitioning has finished, each subspace $R_m$ is assigned a label $c_m$. In the regression case, the mean of the true labels from the training set in $R_m$ is assigned. 
+For classification, the majority class is assigned to the subspace.
+The decision function returns $c_m$ for new point $x_i$ located within the region $R_m$
+\begin{equation*}
+    f(x) = \sum_{m=1}^{M} c_m \mathbf{1}(x \in R_m)    
+\end{equation*}
+where $\mathbf{1}$ is the indicator function.
+Finding the optimal partition of subspaces in order to construct a decision tree is an NP-complete~\cite{dt_np_complete} problem.
+Decision tree methods employ a greedy strategy to build the partition~\cite[307]{hasties}. 
+The tree is build by performing recursive binary splits of the subspace.
+Starting from the tree's root, the parameter space is split at a into a set of \enquote{left} and \enquote{right} partitions.
+A variable $j$ and a split value $S$ are chosen which define the partition 
+\begin{equation*}
+    R_L(j, S) =  \{x \in \data \mid x^{(j)}  \leq S \} \text{\quad and \quad} R_R(j, S) =  \{x \in \data \mid x^{(j)}  > S \}.
+\end{equation*}
+The best point $S$ and variable $j$ along which to partition the space is found by iterating through all possible
+splits for all columns in $\data$ and choosing the one which minimizes the loss $(j, S) = \argmin_{(j, S)}(L)$.
+
+For classification tasks the \emph{information gain loss} is a popular choice. 
+It is known under different names such as the \emph{cross-entropy} or just \emph{entropy} criterion. 
+The loss for the information gain (IG) is defined as
+\begin{equation*}
+    L = -\operatorname{IG}(Y, R) = -\bigl(H(Y) - H(Y \mid R)\bigr).
+\end{equation*}
+The function $H$ is known as the information entropy 
+\begin{equation*}
+  H(Y) = - \sum_{g \in G} P(Y=g) \log_2{P(Y=g)}.
+\end{equation*}
+For the random variable describing the target distribution $Y$. The probabilities $P$ are assumed to be uniform and are simply approximated by
+the class proportions. In a binary classification problem this simplifies to
+\begin{equation*}
+    H = -p \log_2(p) - (1-p)\log_2(1-p),
+\end{equation*}
+where $p = \frac{|R_L|}{|R_L| + |R_R|}$.
+The conditional entropy $H(Y \mid R(j, S))$ is the entropy of $Y$ after the split has been applied.
+It can be written in terms of probabilities as
+\begin{equation*}
+    H(Y \mid R)  =  \sum_{\mathclap{R \in \{R_L, R_R\}}} P(X \in R) H(Y | x \in R),
+\end{equation*}
+where $H(Y | x \in R)$ is the entropy of $Y$ for all data points $x$ in subspace $R$.
+Again, the probabilities are assumed to be uniform and can be approximated by their proportions
+\begin{equation*}
+    H(Y \mid R)  =  \frac{|R_L|}{|R_L| + |R_R|} H(Y \mid x \in R_L)  + \frac{|R_R|}{|R_L| + |R_R|} H(Y \mid x \in R_L),
+\end{equation*}
+where $|R_L|$ and $|R_R|$ is the number of samples in the left and right partition respectively.
+Once the best split has been found, the process continues recursively until a stopping criterion is met.
+In the case of regression, where $Y$ is continuous, the process is the same. The only difference is the choice of loss function.
+For most regression problems, including the energy estimation performed here, the residual sum of squares is minimized in each partition
+\begin{equation*}
+    L \propto \sum_{\mathclap{R \in \{R_L, R_R\}}} \operatorname{Var}(Y \mid x \in R_L).
+\end{equation*}
+In other words, the split $(j, S)$ which minimizes the total variance of the target in each partition is chosen.
+
+Tree building algorithms try to find the optimal split criterion in some local region of the parameter space.
+Finding the best overall split in parameter space is computationally infeasible.
+This means the decision tree algorithm can run into a local optimum. 
+When building a decision tree one needs to find a balance between the tree depth and its tendency to overtrain. 
+In general, a decision tree whose final nodes, or leafs, contain too few samples, does not generalize well.
+The number of times a certain feature has been selected for splitting during optimization carries some notion 
+of \emph{feature importance}. This is a useful diagnostic tool for validating ones assumption regarding the classification.
+
+The idea of \emph{ensemble learning} is to train several weak classifiers on different subsets of the data and
+then combine them into one strong classifier by averaging their output.
+This makes the decision tree method relatively robust to overfitting without 
+losing much runtime since the creation of the ensemble is trivial to parallelize.
+The most common way to build a decision tree ensemble  
+was popularized by Breiman~\cite{breiman-bagging}.
+Here the training data is split into subsets using sampling with replacement, which is also known as bootstrapping.
+An additional source of randomness, or variance, was introduced by Breiman
+by limiting the choice of variables $j$ in each partition to a random subset of features. 
+This construction is called a \enquote{Random Forest}~\cite{breiman-rf}. 
+For use in ensemble methods another layer of randomization can be applied to the tree building process. 
+Instead of iterating through all possible cuts for the $n$ randomly selected features, only $n$ randomly chosen 
+splits are considered. These \emph{extremely randomized trees}~\cite{extratrees} can be used in bagged ensembles
+just like the original Random Forest, but with much faster training times. 
+
+For my CTA analysis I use and ensemble of extremely randomized trees for classification of particle type and regression of energy. 
+
+
+\section{AICT-Tools}
+\label{sec:aict}
+
+To ensure reproducibility for the entire machine-learning process, 
+I started the open-source \python project called \aicttools. It consists of a fully configurable pipeline 
+to perform the common machine-learning tasks encountered in IACT analysis. 
+Given a set of input data and configuration files, it splits the data into test and training sets,
+performs on the fly feature generation, trains and applies the models, and creates the numbers and charts needed to gauge the
+performance of the trained models.
+Each task is dealt with by a single-purpose command line application. This was a design decision made to facilitate 
+the use external tools such as \make to model the data dependencies between each task.
+\cref{ch:repro} contains a short discussions on the use of Makefiles to ensure reproducibility.
+% Programs such Make or similar projects are helpful tools to support reproducibility. A short discussions on the use of Makefiles can be found in \cref{ap:repro}.
+The classification and regression algorithms executed by the \aicttools are implemented in the \sklearn library~\cite{sklearn}.
+Arbitrary \sklearn predictors can be used by the \aicttools as long as they produce continuous output. 
+Everything is configured in human readable \yaml files. 
+
+Originally build for the \fact project, I added new functionalities to the \aicttools to support the analysis of CTA data.
+The goal was to make it possible to work with data on a single telescope level, i.e. the telescope-events, as well as the array-event level.
+The output of the CTA preprocessing comes in the form of three tables stored within a single \hdf file.
+The logical layout of this DL2 data file can be seen in \cref{tab:dl2-structure}.
+This layout brings about some challenges concerning the I/O functionalities of the \aicttools.
+First and foremost, the splitting of the data into training and validation sets has to take the simulation information into account.
+The data belonging to a single simulation run must not be separated. 
+% The \corsika settings for the triggered data needs to be available.
+ Otherwise the calculation of instrument responses and event weights, 
+as described later in \cref{sec:weights}, would not be possible. 
+Second, in order to train models on both single telescope features as well as array-wide information, the tables need to be merged. 
+The tables are joined on the primary key which consists of the unique identifiers for the run, array-event, and telescope.
+The canonical way to support this kind of operation is by using the well known \pandas library~\cite{pandas}.
+While the library is a powerful tool to perform operations on table-like data, it does not support memory mapping techniques or out of memory computing.
+The overhead in terms of required RAM are considerable.
+For the \aicttools I implemented a way to read and merge the CTA data in a chunk-wise manner.
+The \aicttools work with the full PROD3B analysis as well as the simulations for the prototype
+of the CHEC camera. 
+The code, including example configurations, can be found at 
+\githubcenter{fact-project/aict-tools}. 
+
+% An fully reproducible analysis of published \fact data can be executed by  i 
+% For my thesis I benchmarked the performance of the produced models and optimized
+% them using feature generation and nested modeling approaches which have been implemented into aict
+
+\begin{table}
+    \renewcommand{\arraystretch}{1.0}
+    \caption[Data structure for data level 2]{Logical structure of the DL2 data as produced by the CTA preprocessing script. All tables are stored in a single \hdf file. 
+    The unique primary keys allow for merging and joining of information. This allows for a straightforward access to the simulated values for any given 
+    telescope-event. The telescope-event identified by the tuple $(58, 4100, 92)$, for example, can easily be associated with the simulated energy, \enquote{mc\_energy}, of the array-event 
+    $(58, 4100)$.
+    For the training of machine-learning models, the array-event table is merged with the telescope-event table.
+    For application of the models the data is read chunk-wise by reading the entire index into memory and then reading blocks of
+    connected array-events. 
+    The table below shows the first exemplary lines 
+    of the diffuse simulated gamma-ray dataset described in \cref{tab:datasets}. Some column names were shortened in order to fit the table to the page.
+    A full listing of column names can be found in the \aicttools configuration file in appendix~\ref{ap:config}.}
+    \label{tab:dl2-structure}
+    % \rowcolors{3}{white!92!black}{}
+    \begin{tabular*}{\textwidth}{@{}l l l@{\extracolsep{\fill}} r r r r@{}}
+    \multicolumn{6}{@{}l}{\textbf{Runs}}\\
+    \addlinespace[0.2em]
+    % Run ID & & & mc\ & mc\_num\_showers & mc\_shower\_reuse \\
+    % \addlinespace[0.2em]
+    \input{build/dl2_info_runs.txt}\\
+    \multicolumn{6}{c}{$\vdots$}\\
+    \multicolumn{6}{@{}l}{\textbf{Array Events}}\\
+    \addlinespace[0.2em]
+    % Run ID & Event ID &  & Run ID & Event ID \\
+    % \addlinespace[0.2em]
+    \input{build/dl2_info_array.txt}\\
+    \multicolumn{6}{c}{$\vdots$}\\
+    \multicolumn{6}{@{}l}{\textbf{Telescope Events}}\\
+    \addlinespace[0.2em]
+    % Run ID & Event ID & Telescope ID & Width & Length \\
+    % \addlinespace[0.2em]
+    \input{build/dl2_info_telescope.txt}\\
+    \multicolumn{6}{c}{$\vdots$}\\
+    % \input{build/pymc_results/unfold/result_table.txt}
+    \end{tabular*}
+\end{table}
+
+
+\section{Application to CTA Data}
+\label{sec:results}
+The datasets listed in \cref{tab:datasets} are split into two parts. One for training the models and one for evaluating the physics performance.
+The classification model for background suppression is trained to separate diffuse gammas from proton simulations. 
+The electron dataset is left as is and not used as input for the training step.
+All models are trained on a single telescope level. 
+The array-events table is merged with the telescope-events table with an inner join.
+Each array-event has at least two associated telescope-events. 
+This means that array-wide information is simply duplicated for each row belonging to the same array-event. 
+When the model is applied to new data, the predictions for the single telescopes are aggregated to build the 
+estimate for the whole array-event. The application of nested machine-learning models show large potential for improvements~\cite{ba_lars}. 
+For this analysis, the simple, unweighted average, is built for the prediction of the array-event. 
+After the tables have been merged, new features are generated by the \aicttools. 
+These new features are build by combining the values in different columns using elementary mathematical operators.
+The model settings are completely defined by the configuration file for the \aicttools which is listed in appendix~\ref{ap:config}. 
+The features that were selected for the model training as well as the definition of the generated features are included in the configuration.
+
+Of the original datasets, \SI{1.5}{\percent} of the protons and \SI{5}{\percent} of the diffuse gamma rays are used for training.
+That leaves \input{build/len_train_proton.txt} single telescope-events for the protons and \input{build/len_train_gamma.txt} 
+events for the gamma-ray data.
+No additional selection cuts are applied to the data prior to training the classifier.
+For this analysis an ensemble of \input{build/classifier_n_estimators.txt} extremely randomized trees was trained.
+Each tree was limited in depth by only allowing further splits in nodes with at least \input{build/classifier_min_split.txt} samples. 
+During training a \input{build/classifier_k_cv.txt}-fold cross validation is applied to 
+evaluate the performance.
+The cross validated area under ROC curve is \input{build/cv_auc.txt} which is in the same range as other analysis results previously circulated 
+within the CTA consortium. 
+It is difficult to make a rigorous comparison on this performance estimate alone. 
+The classification strength depends strongly on the distribution of the data. Any sort of selection cut applied before 
+training the model can improve the classification strength by a great deal. The same is true for the adaption of cleaning thresholds.
+Another layer of complexity is added when taking energy dependencies into account. 
+In IACT analysis, it is common practice to look at the performance estimates in different simulated energy ranges, akin to \cref{fig:ang_res_raw}
+where the angular resolution was plotted with respect to the energy. For classification, this is difficult to justify as the 
+energy distribution of the background events is unknown in observed data.
+The migration of the background events between the energy bins could be completely arbitrary, so that the classification strength measured on the 
+simulated background energy might not resemble to performance on real observations at all.
+A comparison on the level of estimated energy might be more fair. However, this makes it hard to deconvolve the effects 
+of two multivariate models with each other when comparing these figures between different analysis approaches.
+These problems have been recognized by the rest of the CTA collaboration as well and an effort has started to unify and define benchmarks 
+between analyses~\cite{cta_benchmarks}. 
+\Cref{fig:roc} shows the receiver operating characteristic (ROC) of the classifier on the entire energy range together with the balanced accuracy 
+versus varying prediction thresholds.
+These numbers were calculated on the large test sets of diffuse gamma-ray and proton events. 
+\Cref{fig:classifier_importance} shows a list of all training features together with their feature importances as estimated by every tree in the ensemble.
+
+\begin{figure}[]
+    \centering
+    \includegraphics{build/auc_acc.pdf}
+    \caption[ROC curve and balanced accuracy.]{The left-hand side shows the receiver operating curve for the test data with 
+    \protect{\input{build/len_test_proton.txt}} single-telescope proton events and \protect{\input{build/len_test_gamma.txt}} gamma events.
+    The color scale indicates the prediction threshold corresponding to the pair of true and false positive rate. 
+    The figure on the right-hand side depicts the balanced accuracy of the classifier versus the prediction threshold.
+    Both figures use the same color scale.
+    }
+    \label{fig:roc}
+\end{figure}
+
+\begin{figure}[]
+    \centering
+    \includegraphics{build/importances_classifier.pdf}
+    \caption[Feature importance for the classifier]{A total of \protect{\input{build/classifier_num_features.txt}} variables are used to train the classifier.
+    The box plot shows the inter-quartile range of the feature importances for each variable. Both single-telescope and array-wide 
+    features are deemed as relatively important by the decision tree ensemble. The classifier was also fed with 
+    instrument parameters such as \texttt{camera\_type\_id} and \texttt{mirror\_area}. 
+    While it does not describe parameters of the air shower, it helps with learning the peculiarities in the different cameras and optical systems.
+    The concentration parameters such as \texttt{concentration\_cog} are often selected to split nodes in the decision tree. These parameters
+    describe the amount of light collected in the center pixel with respect to the rest of the selected pixels in the shower.
+    }
+    \label{fig:classifier_importance}
+\end{figure}
+
+
+Energy regression is handled in a very similar way to the classification. A total of \input{build/classifier_n_estimators.txt} extremely 
+randomized trees were trained on \input{build/regressor_num_features.txt} features. 
+The target variable, the simulated energy of the primary particle, 
+was transformed by $y' = \log_{10}(y)$ before training the classifier. This decreases the total range of the parameter and limits the dynamic range of
+the variance, or residual sum of squares, which is optimized during training. Using the transformed target, the estimator is able to 
+put more weight on the low end of the energy range.
+The regressor was evaluated in a \input{build/regressor_k_cv.txt}-fold cross validation. 
+The mean $R^2$ score for this model is \input{build/cv_r2.txt}. In contrast to the classification, the behavior of the energy estimator with 
+respect to the true energy is of major interest. The closer the estimated energy to the true energy, the lower the off-diagonal entries in the 
+response matrix and in turn the calculation of fluxes and energy spectra. 
+The energy resolution is calculated from the relative distance between the true and estimated energy $d = \frac{\eest - \etrue}{\etrue}$. Two definitions 
+for the energy resolution are customary in the IACT community. 
+First, the 68\th percentile of the relative distance and second, half the width of the central interval between the 16\th and the 84\th percentile
+\begin{equation*}
+    R_{\eest} = \frac{1}{2} \bigl( Q_{84}(d)  - Q_{16}(d) \bigr).
+\end{equation*}
+The second definition, the central interval, is used throughout this text. The \emph{energy bias} is defined as the median of the relative distance distribution.
+\Cref{fig:energy_res_raw} shows the energy resolution of this regressor.
+Similar to benchmarking the classification strength, it is difficult to compare the energy resolution across different analyses. 
+Selection cuts applied before applying the model have a large impact on the energy resolution. 
+The optimization of the event selection cuts is strongly dependent on the physics use case. The next section will cover the optimization for 
+a point-source analysis. 
+\Cref{fig:regressor_importance} shows the feature importance for every variable used by the regressor.
+
+\begin{figure}[]
+    \centering
+    \includegraphics{build/energy_resolution_raw.pdf}
+    \caption[Energy resolution]{The figure shows the energy resolution of the regressor. It was trained on \protect{\input{build/len_train_gamma.txt}}
+    gamma events with \protect{\input{build/regressor_num_features.txt}} features.
+    The histogram in the background shows the distribution of $d = \frac{\eest - \etrue}{\etrue}$ with respect to the true energy.
+    The peaks in the distributions correspond to the maximum acceptance probability of the different telescope types.
+    Similar to the behavior of the angular resolution, the energy estimation improves 
+    with increasing energy up to the point where the lack of image containment prevents accurate energy reconstruction.
+    }
+    \label{fig:energy_res_raw}
+\end{figure}
+
+\begin{figure}[]
+    \centering
+    \includegraphics{build/importances_regressor.pdf}
+    \caption[Feature importance of the energy regressor]{A total of \input{build/regressor_num_features.txt} variables are used to train the regressor.
+    The box plot shows the inter-quartile range of the feature importances for each variable. Somewhat surprisingly, 
+    the feature called \texttt{total\_intensity}, which is the sum of the single telescope intensities, is not the most important 
+    observable. The \texttt{num\_triggered\_sst} variable is deemed most important by the regressor. This can be explained by the fact 
+    that the SST type telescopes can trigger on high-energy showers with large impact distances due to their large field of view.
+    In addition, the small mirror excludes them from triggering very dim showers. 
+    }
+    \label{fig:regressor_importance}
+\end{figure}
+
+
+
+
+% The regression model for energy estimation is trained on the same diffuse gamma rays.
+
+% final model is build on the entire training data.
+
+%  The 
+
+% described in \cref{tab:datasets} and \ref{tab:dl2-structure}, and a Makefile which lists all data
+% dependencies for the final model.   

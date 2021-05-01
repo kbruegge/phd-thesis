@@ -1,0 +1,37 @@
+datasets:
+  magic:
+    on_radius: 0.141
+    containment_correction: False
+    bins_per_decade: 5
+    bins_per_decade_e_reco: 20
+    fit_range: [0.05, 2.5]
+
+  fact:
+    on_radius: 0.17
+    containment_correction: False
+    bins_per_decade: 5
+    bins_per_decade_e_reco: 20
+    stack: True
+    fit_range: [0.4, 5]
+
+  veritas:
+    on_radius: 0.10
+    containment_correction: False
+    bins_per_decade: 5
+    bins_per_decade_e_reco: 20
+    stack: True
+    fit_range: [0.1, 3.5]
+
+  hess:
+    on_radius: 0.11
+    containment_correction: True
+    bins_per_decade: 5
+    bins_per_decade_e_reco: 20
+    fit_range: [0.35, 7]
+
+source_position:
+  ra: '83d37m59.0988s'
+  dec: '22d00m52.2s'
+
+# exclusion_map: "exclusion_mask.fits.gz"
+

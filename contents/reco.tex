@@ -1,0 +1,468 @@
+\chapter{Processing CTA Data }
+\label{ch:cta_analysis}
+
+The physics performance of the CTA project can only be gauged from simulated data. 
+Simulations for Cherenkov telescopes as described in \cref{sec:irf} 
+track single particles and their secondary products through the atmosphere. Each single Cherenkov photon produced in an air shower 
+is propagated to the virtual camera using ray tracing.
+For a project as large as CTA, with its vast collection area on the ground, this becomes especially challenging. 
+The distribution of Cherenkov photons on the ground are too large to store on disk. Instead, the data is piped directly into the
+simulation of the telescope's optics and electronics. With a total of 99 telescopes on the ground at the Paranal site, this takes up large 
+parts of the entire CTA computing infrastructure. 
+Air-shower simulations for CTA, as for every IACT, are performed by the \corsika software~\cite{corsika}. The detector simulation is computed
+by a program called \simtel. This software is maintained by Konrad Bernlöhr and was previously used to simulate 
+data for the \hegra and \hess telescopes~\cite{simtel}.
+So far, CTA data for the final layouts only exists in simulated form. However, the development of analysis software already is well underway.
+The result of the simulations resemble the data from real telescopes as much as possible. The simulated data essentially produces 
+uncalibrated raw data. The task of the data processing for CTA is to read the raw data and reconstruct 
+information about the primary particles for each air shower.  
+Early CTA analysis was performed by the \eventdisplay~\cite{eventdisplay} and \mars~\cite{magic_mars} programs.
+These \rootcern and \cpp based projects have originally been developed for the \veritas and \magic 
+projects. Both packages are proprietary to their respective collaborations and were used in the early stages of CTA's development.
+The new software, \ctapipe, is a \python project developed under open-source licenses. 
+The intention behind the design of \ctapipe is to create a fully configurable analysis pipeline for all CTA telescopes that adheres to all 
+provenance requirements set by the CTA consortium. 
+As of now, \ctapipe can perform preprocessing of simulated data, noise removal, extraction of image features, 
+and reconstruction of the air shower's direction, as I will describe in the coming sections. 
+\Cref{sec:pipeline} gives details about the \ctapipe-based preprocessing pipeline and the datasets used throughout the next chapters.
+Details on the feature extraction methods, the so-called Hillas analysis, are given in \cref{sec:hillas}.\index{Hillas}
+\Cref{sec:direction} elaborates on the direction reconstruction implementation in \ctapipe.
+Both background suppression and energy estimation are performed by machine-learning methods which will be the topic of \cref{ch:ml}.
+
+
+\section{Preprocessing Pipeline and Simulated Datasets}
+\label{sec:pipeline}
+The \ctapipe project in version 0.6.2 does not yet provide a fully featured and configurable application 
+to process simulated raw data. 
+While \ctapipe comes with basic tools to build configurable command line applications, this part of the code was only recently overhauled 
+and is still in an early test phase. In \ctapipe a \emph{container} metaphor is used to encapsulate data. 
+Rudimentary support for input and output of these container types is already available.
+Using these features for large productions is, unfortunately, still problematic at this point. 
+This is mostly due to the fact that no common file standards and formats have been agreed on in the CTA collaboration. 
+The \ctapipe preprocessing pipeline reduces the raw data to a tabular structure which can be used to train 
+machine-learning models for energy estimation and background suppression.
+This tabular structure is called data level 2 (DL2) in the CTA vernacular.
+The predictions of the trained models are then appended as new columns to the rest of the DL2 data.
+Consequently, one of the requirements for a DL2 storage format is the capability to efficiently add, select, and remove columns. 
+The DL2 data is also the input for the computation of the instrument response functions as described previously in \cref{sec:irf}, and therefore 
+has to contain meta information about the air-shower simulations. 
+The search for an official DL2 data format comes down to a tradeoff between columnar and row-wise storage.
+In machine-learning use cases, the data is often queried and operated on in a column-wise manner.
+Hence, a storage format is preferable that only reads the selected columns into memory. 
+On the other hand, the processing of raw data happens event-wise. Therefore, appending rows to existing files has to be as efficient as possible.
+The file standard currently under consideration for CTA is \hdf, which supports both storage modes. 
+The \hdf standard provides hierarchical binary storage with built-in compression capabilities~\cite{hdf5}. 
+The \ctapipe solution writes its data in row-wise form. This might proof to be useful in the future once data 
+needs to be written under real-time constraints. 
+For the analysis of simulated data, however, the runtime performance of the append operation is of lesser importance. 
+For my use case, analysis of simulated data, I chose column-wise storage which allows for memory-efficient machine learning 
+on a typical desktop computer. 
+This format allows me to store single telescope information, array-wide event information and simulation settings within a single file.
+I use the methods implemented in \ctapipe to build a custom preprocessing pipeline which can be configured using \yaml~\cite{yaml} files. 
+The code and example configurations for the preprocessing pipeline can be found online at 
+\githubcenter{tudo-astroparticlephysics/cta_preprocessing}
+The list below gives an overview of the steps performed by the pipeline.
+\begin{description}[style=nextline, leftmargin=0em, parsep=0.1em, itemsep=0.2em, labelindent=0em]
+    \item[Raw Data Calibration] Sensor artifacts and electronic noise is removed from the raw voltage curves with the help of calibration data.
+    In the simulated data only a rudimentary calibration is performed.
+    \item[Integration] The calibrated voltage curves are integrated below their peak to find the estimated number of photons that hit the camera's pixel. The location of the peak 
+    is used as an estimator for the mean arrival time of the Cherenkov photons. 
+    \item[Image Cleaning] The group of pixels which have been hit by Cherenkov light are retained, while others are discarded. An example 
+    of applied image cleaning can be seen in \cref{fig:preprocess}. 
+    \item[Image Parametrization] The cleaned image is reduced to a list of descriptive features based on the shape of the Hillas ellipse as described in \cref{sec:hillas}. 
+    \item[Shower Reconstruction] The point of origin and trajectory of the shower are reconstructed by using images from multiple 
+    telescopes at once. \Cref{sec:direction} explains how this stereoscopic information is used by the implemented algorithms.
+    \item[Output] The final results of the pipeline are written to disk. The final output contains telescope-wise as well as event-wise information.
+    In order to support the computation of instrument responses, meta data about the simulation settings are stored per simulation run.  
+\end{description}
+
+CTA's air-shower simulations are performed by the \corsika software.
+Its development has been ongoing since the late 1980s and was originally designed to simulate hadronic interactions in the atmosphere 
+above the \kascade cosmic-ray experiment in Karlsruhe~\cite{kascade-data}. 
+The propagation of the Cherenkov photons to the ground is usually performed  with the \mbox{IACT/ATMO} extension to \corsika. The extension follows the 
+production of charged particles in the atmosphere and calculates the emitted Cherenkov light in each track segment.
+The extension was mainly written by Konrad Bernlöhr and is still maintained by him. 
+CTA's detector simulation is performed by the \simtel~\cite{simtel} program. The history of \simtel started with the \hegra array and is still used today by 
+the \hess telescopes. The crucial part of any detector simulation is the realistic behavior of the telescope's trigger. 
+A biased simulation will lead to instrument response functions which do not correspond to the actual behavior of the telescope.
+In particular the calculation of the effective area, as seen in \cref{sec:irf}, is sensitive to errors in the simulations. 
+The detector simulation uses the trajectory of each single Cherenkov photon as computed by \corsika and traces their path through the 
+optical components of the telescope such as mirrors and light-guides. Once the photons have been ray traced to the virtual camera pixel, 
+the detector's sensor electronics are simulated. Additionally, potential background light sources such as scattered light in the atmosphere 
+have to be taken into account. Then the trigger logic is applied and the data from the \corsika is either written to disk or discarded.
+This is the point in the analysis that takes up a majority of the computing time.
+The calculation of the shower propagation is a slow process and most of the simulated showers are discarded. 
+Research is ongoing into adapting \corsika by allowing it to stop early in the propagation process~\cite{baack}. 
+These approaches try to predict whether the telescope's trigger logic will discard the shower or not.
+Both \corsika and \simtel are long-running software projects with decades of history. 
+Large parts of these legacy code bases have become unmaintainable and derelict over the recent years.
+Efforts are ongoing to modernize both projects by rewriting or replacing them. 
+The roadmap to a new and modern air-shower simulation software has already been formalized in the \corsika 8
+white paper \cite{corsika8}.
+
+To gauge CTA's physics performance on observed data, both signal and background data has to be simulated.
+Large amounts of showers have to be simulated to test the preprocessing pipeline and benchmark the quality of the reconstruction and machine-learning 
+algorithms.  
+As mentioned in \cref{sec:iact} the majority of triggered air showers are induced by the hadronic component, protons and heavier nuclei,  of the cosmic rays.
+Another background component in the low \si{GeV} energy range comes from cosmic electrons. Both particle types are simulated separately. 
+While air showers that were induced by protons can be separated from gamma-ray showers by the shape of the shower, electrons create electromagnetic cascades indistinguishable
+from gamma-ray showers. 
+The incoming primary particles can be instantiated in two different ways. 
+Diffuse simulations scatter the origin of the primary particle on the sky. 
+The protons and electrons are simulated in a diffuse manner, so that their point of origin is uniformly distributed across the field of view.
+This is in contrast to point-like simulations, where the point of origin is fixed in the center of the field of view.
+\Cref{tab:datasets} shows the simulated datasets together with their associated simulation settings.
+These datasets will be used throughout the rest of the document.
+I only consider data simulated for the southern site for the analysis. 
+CTA's detector simulation places multiple virtual camera prototypes into a single telescope.
+I selected the \emph{LSTCam}, \emph{NectarCam}, and \emph{DigiCam} prototype hardware for my analysis 
+in accordance with previous reference analyses.
+
+
+\begin{table}
+    \renewcommand{\arraystretch}{1.2}
+    \caption[]{Datasets used for the CTA analysis. The table below lists information about the number of simulated showers, as well as the number 
+    of remaining events after the telescope's trigger simulation and preprocessing have been applied. 
+    During processing events get dropped if the image cleaning does not select any pixels or the image parametrization fails for numerical reasons.
+    In this dataset all telescopes point in the same direction, due south with an elevation of \SI{70}{\degree}.
+    In the point-like gamma-ray simulation the virtual source is situated right in the center of the array's field of view.
+    I exclusively use data from the southern array in my analysis. All \input{build/num_tel_south.txt}telescopes are participating in the trigger. 
+    I selected the simulated \emph{LSTCam}, \emph{NectarCam}, and \emph{DigiCam} prototype hardware for these datasets.}
+    \label{tab:datasets}
+    \rowcolors{0}{white!92!black}{}
+    \begin{tabularx}{\textwidth}{@{}>{\columncolor{white}[0pt][\tabcolsep]}X r r r>{\columncolor{white}[\tabcolsep][0pt]}r@{}}
+    \hiderowcolors 
+    \multicolumn{5}{@{}l}{\textbf{Paranal Array HB9}} \\
+    \addlinespace[0.2em]
+     & \textbf{Gamma} & \textbf{Diffuse Gamma} & \textbf{Proton}  & \textbf{Electron} \\
+     \showrowcolors 
+    \input{build/dataset_info.txt}
+    \end{tabularx}
+  \end{table}
+
+
+
+\section{Raw Data Processing}
+\label{sec:raw_processing}
+
+The data recorded by imaging Cherenkov telescopes is contaminated with noise and sensor artifacts. 
+Some of that noise originates in background light due to stars or other diffuse light hitting the mirror.
+Other noise is produced by the sensor itself or by the camera electronics. 
+The raw data from the pixel sensors, be it silicon based photo-multipliers or traditional photo-multiplier tubes, 
+consists of a series of voltages over time.
+Data from the sensors is only transferred when a group of pixels in the camera reaches a certain voltage threshold.
+In addition to these single telescope triggers, CTA uses a stereoscopic trigger system. 
+Only when two or more telescopes have triggered coincidently, the data will be stored permanently. 
+The collection of telescope data corresponding to one coincident trigger is called an \emph{array-event} throughout this chapter.
+The part of an array-event belonging to one distinct telescope is called a \emph{telescope-event}. 
+Converting the time series of voltages in each pixel to images is the first step of the \ctapipe pipeline.
+This step is sometimes called signal, or image, extraction.
+
+For the standard CTA analysis, two numbers are extracted per pixel from the voltage curves. 
+The number of recorded photons
+are estimated by integrating over the length of an adaptively selected time window. The result is then multiplied by the gain factor of the corresponding pixel which is 
+known from calibration measurements. 
+The mean arrival time of photons per pixel is estimated by finding the rising edge of the signal.
+Smoothing methods are usually applied to reduce the influence of electronic noise in the signal.
+This step is highly dependent on the sensor technology and circuitry used in the camera. 
+The observed data will have to be carefully calibrated to compensate for any environmental effects like temperature and humidity.
+CTA simulations make the rather optimistic assumption that all telescope are well cross-calibrated. 
+
+
+% The time series of voltages are converted into 
+The resulting images still contain noise due to background light. Only those pixels which have been hit by Cherenkov light are of consequence for the analysis. Others are discarded.
+At first, pixels above a certain threshold are selected as \emph{core} pixels.
+In a second pass adjacent pixels above a second, lower, threshold are selected. This process is known as \emph{tail-cut} cleaning. 
+The set of selected pixels create an optical image of the air shower. 
+These selected pixels can then be used to extract the geometrical properties of the air shower.
+The cleaning is a crucial step in the analysis. There is a trade-off between the goal to retain as many 
+Cherenkov photons from the air shower as possible while discarding noisy pixels which can bias the  
+reconstruction of the shower's properties.
+The cleaning levels chosen for the preprocessing are listed in \cref{tab:cleaning}
+
+\begin{table}
+    \renewcommand{\arraystretch}{1.2}
+    \caption[]{Cleaning levels used for the CTA analysis.
+    I selected the simulated LSTCam, NectarCam, and DigiCam prototype hardware for the datasets.
+    In the first sweep the tail-cut cleaning method selects all pixels above the \enquote{core threshold}. In the second step,  
+    all pixels are added whose light content is above the \enquote{neighbor threshold} 
+    and which have at least \enquote{min pixels} neighboring pixels that were selected in the first step.}
+    \label{tab:cleaning}
+    \centering
+    % \rowcolors{0}{}{white!92!black}
+    \begin{tabular}{l r r r}
+        \input{build/cleaning_info.txt}
+    \end{tabular}
+\end{table}
+
+
+\Cref{fig:preprocess} shows a simulated gamma-ray event as seen by an LST type telescope. 
+The left side shows the voltage curve of a single pixel which is part of the air-shower image as can be seen in the right image. The right side shows 
+each pixel of the camera with the estimated number of photons on the color axis. The pixels selected by the tail-cut method are marked by the red outline.
+This part of the analysis process is clearly the most data intensive task as it needs to process the lowest level of data from many
+telescopes at once. 
+
+\begin{figure}
+    \centering
+    \includegraphics{build/preprocessing.pdf}
+    \caption[Preprocessing of CTA data]{A simulated air shower induced by a gamma ray as seen by one of the four LST cameras to be build
+    at the Paranal observatory. 
+    The left side of the image shows the voltage curve for a single pixel. The selected pixel lies on the edge of the 
+    shower and is marked by a red edge in the right image. The right-hand side depicts the 
+    image in the LST camera that shows the estimated number of photons on the color axis.
+    The contour around the brightest pixels shows the group of pixels $C$ that have been selected by the tail-cut cleaning method.
+    This gamma ray was simulated with an energy of \input{build/preprocessing_energy.txt} and triggered a total of \input{build/preprocessing_multi.txt}
+    telescopes in the array. 
+    }
+    \label{fig:preprocess}
+\end{figure}
+
+
+\section{Image Feature Extraction}
+\label{sec:hillas}
+\newcommand{\imagerot}{\psi}
+Properties of the incoming primary particle can only be inferred from the air-shower's Cherenkov emission. 
+The classical IACT analysis uses the pixels selected by the cleaning step to calculate the so-called Hillas-parameters\index{Hillas}
+which describe the shape of the Cherenkov emission.
+In his seminal conference proceeding for the International Cosmic-Ray Conference 1985, Michael Hillas~\cite{hillas} used air-shower simulations for the \whipple telescope to find parameters which allow for the
+separation between air showers from gamma rays from those started by cosmic rays. This early work is noteworthy due to the fact that it led to the first 
+observation of a \si{TeV} gamma-ray source, the Crab Nebula, and started the success story of IACT technology.
+Hillas proposed to approximate the shape of the air showers by an ellipse and use its geometric parameters for further analysis.
+In particular the \emph{width} and \emph{length} of the observed ellipse serve as a discriminating feature.  
+They describe the standard deviation of the Cherenkov photon distribution along the major and minor axis of the ellipse.  
+Early papers described the calculation 
+of the parameters by using rather complex equations gained from analytical least-squares fitting 
+of the ellipse's major axis and then rotating the coordinates before calculating the standard deviations 
+along the axes. One example can be found in appendix of the 
+paper describing the first successful observation of the Crab Nebula by the \whipple telescope~\cite{whipple_crab}.
+A simpler, and quicker, calculation of the Hillas ellipse can be performed by diagonalizing the covariance matrix of the photon distribution.
+Let $p = (X, Y)^T$ be a two-dimensional vector of random variables $X$ and $Y$ describing the position of the Cherenkov photons on the camera. 
+Then their covariance matrix is defined as
+\begin{equation*}
+    \mathbf{V_{\mathbf{p}}} = \begin{pmatrix}
+                                \operatorname{Var}(X)   & \operatorname{cov}(X, Y) \\
+                                \operatorname{cov}(X, Y)& \operatorname{Var}(X)
+                            \end{pmatrix}.
+\end{equation*}
+% Covariance matrices are, by definition, positive semi-definite and hence all of its eigenvalues will be positive as well.
+The decomposition of the covariance matrix of $p$ yields a set of orthogonal eigenvectors.
+The vector associated with the largest eigenvalue points into the direction of largest variance i.e the major axis of the Hillas ellipse. \index{Hillas}
+The eigenvalues are the variances of the distributions along these directions.
+Hence, the Hillas \emph{width} and \emph{length} are then simply calculated as the square root of the eigenvalues.   
+% These vectors are often called the principal components of the covariance matrix.
+This process is also known as \emph{Principal Component Analysis}.
+
+The true distribution of Cherenkov photons $p$ can be approximated from the cleaned camera image.
+Each pixel in the camera collects the photons in the area defined by its entry window. 
+If the tail-cut cleaning selects the pixels which mostly contain Cherenkov photons, 
+the resulting camera image can be interpreted as a binned measurement of the true photon distribution. 
+The values in the cleaned image correspond to frequency weights. 
+Given camera pixels of equal area, the covariance matrix for $p$ can be calculated by the weighted variance of the selected pixel set $C$
+\begin{equation*}
+    \operatorname{Var}(X) \approx \frac{1}{W} \sum_{c \in C} w_c (x_c - \bar{x}_w)^2,
+\end{equation*}
+where $\bar{x}_w$ is the weighted mean $x$-position, $w_c$ is the weight of pixel $c$, and $W$ is the sum of all weights in $C$.
+The weighted covariance is defined accordingly
+\begin{equation*}
+    \operatorname{Cov}(X) \approx \frac{1}{W} \sum_{c \in C} w_c (x_c - \bar{x}_w) (y_c - \bar{y}_w).
+\end{equation*}
+The mean coordinate of the shower, $(\bar{x}_w, \bar{y}_w)$, is often called the center of gravity (cog)
+\begin{equation*}
+    p_{\text{cog}} = \frac{1}{W} \sum_{c \in C} w_c \begin{pmatrix}
+        x_c \\
+        y_c
+    \end{pmatrix}
+\end{equation*}
+and describes the mean of the photon distribution.
+The angle $\imagerot$ defines the orientation of the major axis with respect to the horizontal axis of the camera.
+It is calculated from the first and second component of the covariance matrix's eigenvector $\mathbf{v}$ with the largest eigenvalue 
+\begin{equation*}
+    \imagerot = \operatorname{arctan}\left( \frac{\mathbf{v}_y}{\mathbf{v}_x} \right).
+\end{equation*}
+Note that the ambiguous definition of $\operatorname{arctan}$ is used here instead of $\operatorname{arctan2}$, as no preferred direction is defined 
+for the ellipse itself. 
+The sum of weights $W$ encodes another important property of the shower which is often called \emph{size} or \emph{intensity}.
+It is a proxy for the air shower's total brightness in terms of emitted Cherenkov radiation. It correlates strongly with the primary particles initial kinetic energy. 
+Higher order moments along the shower's axis can be calculated once the eigenvectors and $\imagerot$ have been calculated. The skewness of the light distribution, i.e. 
+the third moment along the major axis, is an indicator for the travel direction of the shower. Similar information can be extracted from the arrival time of the photons 
+in each pixel. 
+Another feature is the \emph{leakage} of the image. It is defined as the number of pixels, or sum of weights of pixels, which lie on the outer edge of the camera.
+This feature is useful to discard images which are not fully contained within the camera.
+% Another useful feature is the \emph{concentration} of the image. It is defined as the ratio of the weight in the brightest pixels compared to all other pixels in the shower.
+% Appendix~\ref{ap:features} lists all features calculated by the \ctapipe analysis.
+
+
+% For the analysis a presented here 
+% This is the implementation of the Hillas parameters as I implemented it for the \fact telescope. A similar \python implementation was then contributed 
+% to \ctapipe by Max Nöthe. 
+
+\newcommand{\nvec}{\mathbf{n}}
+\newcommand{\hmax}{H_\text{max}}
+
+\section{Geometrical Shower Reconstruction}
+\label{sec:direction}
+As explained in \cref{sec:bg_estimates}, the cosmic-ray background is isotropically distributed across the sky.
+Gamma-ray sources, either extended or point-like, can be distinguished from the cosmic-ray background only when the reconstruction
+of the gamma-ray direction is accurate. The better the reconstruction of the gamma ray, the higher the significance with which a 
+source can be detected. 
+The optical system of an IACT is focused on the upper parts of the atmosphere, where most air showers 
+emit their Cherenkov light.
+In general, the effective area and energy range of an IACT is limited by its field of view and its mirror size respectively.
+A larger mirror helps collect more light and allows recording very dim showers. Unfortunately, 
+a large mirror, and hence a large aperture, reduce the depth of field of the telescope and only parts of the shower 
+are in focus.  New detector types, like the \emph{Cherenkov-Plenoscope}~\cite{sebastian}, are proposed to remedy this problem. 
+Similar to a thin optical lens, aberration effects and distortions can negatively impact the image quality. 
+Compared to a typical imaging telescope, the requirements for an IACTs optical system are less stringent in terms of mirror precision. 
+For any digital imaging system, a point-like light source has to be mapped onto the area of 
+a single pixel in the focal plane in order to produce a sharp image. As the typical pixel size for an IACTs is in the order of centimeters, 
+mirror precision is less crucial.
+However, since IACTs are completely exposed to the elements, their durability and stability is of much higher importance. 
+In addition, these large structures which hold the mirrors and cameras of the telescope are not completely stiff. 
+Each change in elevation angle requires a correction of the mirror alignment. All large IACTs use active mirror control 
+to constantly align their mirrors with the camera. 
+The geometric information of the shower can be reconstructed with an IACT due to the fact that its mirrors act much like a thin lens.  
+The mirrors of an IACT uniquely map coordinates in the sky to coordinates in the focal plane of the telescope.
+As seen in the previous section, the major axis of the Hillas ellipse points along the main axis of the air shower which in turn points along the primary particles 
+trajectory. 
+In the image of a single telescope, the major ellipse axis does not uniquely specify a point of origin in the sky.
+In fact, the showers point of origin can lie anywhere on the line defined by the major axis. 
+The reconstruction of the primary particles direction has a great impact on the telescopes sensitivity. 
+% The incident primary particle might have originated anywhere along the major axis.
+For a single telescope, extensive shower simulations are needed to use higher order features about the image shape to determine
+the point of origin along the line of the major axis. This is known as the \emph{disp}-method among Cherenkov astronomers~\cite{domingo_disp}. 
+
+A CTA array-event will always have the information of at least two telescopes available to describe the observed air shower.
+The stereoscopic view augments the Hillas parameters with additional information about the showers shape and direction.
+A simple stereoscopic reconstruction technique was introduced by the \hegra experiment~\cite{hegra}. It works by superimposing the 
+images of each telescope onto a common camera coordinate system. The intersection point between each pair of major ellipse axes
+is calculated and averaged to determine the point of origin on the sky.
+
+During my research stay at CEA Paris, I adapted the \hegra methods for implementation in \ctapipe. 
+Previous implementations in \ctapipe used numerical minimization algorithms to find the point of intersection. In my implementation the 
+intersection is found by linear least-squares methods.
+In contrast to \hegra, CTA consists of telescopes with different focal lengths. The combination of different telescope sizes requires the transformation to 
+a common coordinate frame relative to the local horizon.
+The coordinate frames and transformations in \ctapipe were implemented by Maximilian Nöthe. They rely on \astropy's coordinate API, which allows for 
+transitive transformation operations between coordinate frames.
+The definition of the altitude and azimuth angles in \ctapipe follows \astropy's conventions in which an azimuth angle of \SI{0}{\degree} points due north and  
+\SI{90}{\degree} points east. An altitude angle of \SI{0}{\degree} points parallel to the ground. 
+The telescopes in the simulated datasets all point in the same directions with an altitude angle of \SI{70}{\degree} and 
+an azimuth of \SI{180}{\degree}.
+Given the pointing direction of a telescope in the horizontal frame, every point in the telescope's camera
+can be transformed into a tuple of altitude and azimuth coordinates. 
+% The maximum offset to the pointing direction of the array is limited  its field of view. 
+In analogy to the \hegra method, the major axis of the ellipse in each telescope is transformed into the horizontal coordinate frame. 
+This is achieved by selecting two points on the major axis in the camera.
+The first selected point is the center of gravity. Per definition it has to lie on the ellipse's major axis.
+The second point $p_{\text{t}}$ is offset from the center of gravity by an arbitrary distance $a$ in the direction $\imagerot$ along the main axis  
+\begin{equation*}
+    p_{\text{t}} = p_{\text{cog}} + a \begin{pmatrix}
+        \cos(\imagerot) \\
+        \sin(\imagerot) 
+    \end{pmatrix}.
+\end{equation*}
+The transformed points $p_{\text{t}}$ and $p_{\text{cog}}$ together with the telescope's position on the ground define a
+\emph{plane} in the euclidean space. A plane, in mathematical terms, is given by two vectors and a point of origin. 
+Each telescope participating in the triggered event defines such a plane with an accompanying 
+normal vector $\nvec$. 
+The intersection between two, non-parallel, planes 
+is given by a line whose direction is found by taking the cross product between the planes' normal vectors.
+The intersection between the planes points along the direction of the recorded air shower. 
+Similar to the \hegra approach, each ordered pair of normal vectors $(\nvec_i, \nvec_j)$ is used to find an intersecting line which is then combined with a weighted sum 
+\begin{equation*}
+    \hat{d} = \sum_{(i, j) \in S} c_i c_j \,  (\nvec_i, \nvec_j),
+\end{equation*}
+where $S$ contains all combinations of indices $i$ and $j$ for which $i < j < N$. For an event with $N$ participating telescopes, $N(N - 1)$ intersections are evaluated.
+In the current \ctapipe implementation (version 0.6.2) the weights are calculated as $c = W \frac{l}{w}$, where $W$ is the total intensity of the shower and $w$ and $l$
+are the width and and length of the Hillas ellipse.\index{Hillas}
+This simple heuristic puts emphasis on shower images that are bright and elongated for which the shower orientation $\imagerot$ can be reconstructed accurately.
+\Cref{fig:ang_res_raw} shows the angular resolution of this reconstruction method for bins in simulated energy. 
+The angular resolution is defined as the 68\th percentile of the distance between estimated and simulated source position and is indicated by the blue line. 
+The histogram in the background shows the underlying distribution of the simulated gamma rays. 
+
+
+In addition to the direction of the shower, the height of the showers maximum lateral distribution $\hmax$ can be estimated.
+The $\hmax$ variable describes the point along the trajectory of the air shower at which the amount of produced secondaries starts to decrease.
+This corresponds to the point in the camera image in which the Hillas ellipse has its largest extension i.e. its center of gravity.\index{Hillas}
+The $\hmax$ feature correlates with the primary particles energy and type. The more energy the primary particle had, the longer the trajectory of the air shower 
+before the all energy has dissipated. 
+Therefore, the height above ground at which the shower was brightest can be used for energy estimation as well as background suppression. 
+In \ctapipe the estimation of $\hmax$ is performed using a least-squares method.
+The center of gravity $p_{\text{cog}}$ in each shower image is transformed into the local horizontal frame and then into the euclidean coordinates.
+This vector $\mathbf{v}_i$ together with the telescope's position $\mathbf{v}_{\text{tel}, i}$ defines a line running from the telescope to the brightest part in the shower. 
+In a second step, the closest point to a common intersection point between all $N$ lines is estimated.
+Following arguments from~\cite{line_line} the point closest to all other lines can be found using matrix methods. In the first step the matrix 
+$\mathbf{M}_i = \mathbf{1} - \mathbf{v}_i \mathbf{v}_i^\top$ is build for all participating telescopes in the event. 
+The closest mutual point $p_{\hmax}$ to all lines is then found by calculating
+\begin{equation}
+    \label{eq:line-line}
+    p_{\hmax} = \left(\sum_i \mathbf{M}_i \right)^{-1}  \sum_i \mathbf{M}_i \mathbf{v}_{\text{tel}, i}.
+\end{equation}
+\Cref{fig:hmax_raw} shows the estimated $\hmax$ for simulated diffuse gamma rays together with the true height.
+While the estimator is clearly biased and systematically underestimates the true $\hmax$,
+the trend of decreasing $\hmax$ with increasing energy is followed. Hence, it can be used as a useful feature for training the energy estimator.
+
+Another important shower parameter is the impact point of the shower trajectory on the ground. It is calculated using the lines defined 
+by the reconstructed major axis of the shower in each camera. As before the closest mutual point, the closest point to a common intersection, can be found using the 
+least square solution from \cref{eq:line-line}. The distance of each telescope to the impact point is another helpful feature for energy estimation. 
+Showers which trigger the camera despite large distances, have to emit a lot of light and therefore have a large energy content. 
+
+
+\begin{figure}
+    \centering
+    \includegraphics{build/ang_res_raw.pdf}
+    \caption[Angular resolution for diffuse gamma rays]{Angular resolution for diffuse gamma rays.
+    The blue line shows the 68\th percentile of the distance between estimated and simulated source position in each energy bin. 
+    The hexagonal histogram in the background shows the event distribution. 
+    From the minimum energy up to approximately \SI{2}{TeV} the angular resolution improves. This is expected behavior as the reconstruction of the major axis orientation $\imagerot$ improves with increasing 
+    image brightness. At even higher gamma-ray energy the shower images are often not fully contained within the telescope's field of view and 
+    cannot be reconstructed properly. The distribution of events is clearly skewed towards large distances. The peak of the distribution 
+    is located near \SI{0.1}{\degree}. For most events, the direction is reconstructed accurately. Many of these outliers would be removed for the actual 
+    analysis, whose event selection is optimized for a specific use case. An example will be shown in \cref{ch:sensi}. 
+    It is important to note that the distance is calculated between points given in a horizontal coordinate frame which is spherical.
+    The distance between two points on a sphere can be calculated using the Vincenty formula~\cite{vincenty}. For this plot, and similar plots following 
+    in the coming sections, the \astropy implementation of spherical distance computation is used.
+    The dataset shown in the figure contains \input{build/gamma_test_num_array_events.txt} array-events with a total of \input{build/gamma_test_num_tel_events.txt} 
+    single telescope-events.
+    }
+    \label{fig:ang_res_raw}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics{build/hmax_raw.pdf}
+    \caption[Max height reconstruction accuracy.]{The blue line shows the estimated height above ground at which the lateral distribution of Cherenkov photons is the largest. 
+    The shaded blue area indicates the 16\th and 84\th percentile of the estimation.
+    The distribution in the background shows the simulated $\hmax$ values. The horizontal lines in the $\hmax$ distribution are due to binning effects 
+    in CTA's air-shower simulation.  The estimator follows the same shape as the $\hmax$ 
+    distribution, making it a good feature for energy estimation and background suppression.
+    }
+    \label{fig:hmax_raw}
+\end{figure}
+% \begin{figure}
+%     \centering
+%     \includegraphics{build/ang_res_raw_mult.pdf}
+%     \caption[]{Angular resolution for diffuse gamma-rays for different event multiplicities.
+%     The colored lines show the 68\th percentile of the distance between estimated and simulated source position in each energy bin. 
+%     Unsurprisingly, a higher number of triggered telescopes yields a more accurate directional reconstruction since more stereoscopic information 
+%     is available.
+%     }
+%     \label{fig:ang_res_raw_mult}
+% \end{figure}
+\begin{figure}
+    \centering
+    \includegraphics{build/impact_distance_raw.pdf}
+    \caption[Reconstruction of the impact distance]{The two-dimensional histogram shows the distribution of the distance between the true impact position and 
+    the estimated impact position of the shower on the ground for bins in simulated energy.
+    The blue lines indicate the median of the distribution in each bin.
+    }
+    \label{fig:impact_distance_raw}
+\end{figure}
+
+% The center of gravity
+% CTA software used expensive numerical minimization algorithms in order to reconstruct the shower's impact position on the ground.
+% I was able to express the problem as a linear optimization problem which simplifies the problem to simple matrix calculations and least-squares methods.
+% This greatly reduced both runtime and complexity of the method without reducing the accuracy of the reconstruction.
+
+% In my thesis I test the performance of the geometric reconstruction in terms of angular resolution and runtime. The
+% new algorithms have been included in CTA's official preprocessing pipeline.

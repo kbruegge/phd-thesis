@@ -1,0 +1,49 @@
+\chapter{Conclusion}
+
+Supernova remnants like the Crab Nebula are the driving forces of cosmic-ray acceleration in our own galaxy.
+These objects emit electromagnetic radiation in a vast range of wavelengths. Observation from radio, infrared and optical 
+to X-ray and very-high-energy gamma ray are combined into the objects' characteristic spectral energy distribution. 
+Most of the observed light is due to synchrotron emission as discussed in \cref{sec:synchro}.
+Cherenkov telescopes, however, observe the inverse Compton emission of these sources. 
+% A log-parabolic spectral energy distribution of electrons leads to the characteristic 
+A log-parabolic energy distribution emerges from simple stochastic arguments as shown in \cref{sec:log-par-he}. 
+This is compatible with the spectral shape of the inverse Compton emission in SNR
+as measured by IACTs shown in \cref{fig:sed_fit_he}.
+In order to build a spectral model for the Crab Nebula I assumed a single electron spectrum and homogenous magnetic field strength.
+I modeled the synchrotron, inverse Compton, and \ssclong emission of the Crab Nebula 
+using the open-source \naima software.
+\Cref{fig:ssc_fit} shows that this simple model fits the X-ray and gamma-ray data well. The resulting magnetic field in 
+the Crab Nebula was estimated to be $B = \input{build/naima_results/param_5_raw.txt} \quad \si{\micro\gauss}$. 
+
+Open software and common data formats are the key ingredients to reproducible science.
+In a joint undertaking between the \fact, \magic, \veritas, and \hess telescope collaborations, Crab Nebula data was made public in 
+a common data format. This open dataset contains the event lists and instrument response functions for observations of the Crab Nebula. 
+In \cref{sec:spectral_fit} I fitted a log-parabolic spectral model to the observations in this open dataset. 
+The statistical model that describes the measurement process
+assumes Poissonian distributions for the events in both the signal and background region of the sky. 
+The expected values for the distribution have to be calculated from the telescope's instrument response function.
+The full model, taking into account all nuisance parameters, was given in \cref{eq:full_ll}. 
+The posterior probability of the model is then sampled using Hamilton Markov chain techniques. 
+In order to use Hamiltonian sampling, the gradient of the posterior with respect to the free parameters 
+needs to be calculated. 
+This includes the integral term over the energy spectrum and the application of the instrument response.
+The analytical solution to the integral of the log-parabolic spectrum as given in \cref{eq:integral_solution}
+suffers from numerical problems.
+It is possible to circumvent these numerical difficulties by approximating the integral with the trapezoidal 
+rule. I then use \theano's automatic differentiation techniques to find the gradient for the posterior. 
+Hamiltonian sampling is performed by the \pymc, which allows me to sample the model several hundred times per second and 
+CPU core.
+The resulting spectra are compared to the full SSC model in \cref{fig:pymc_fit_spectrum}. 
+\Cref{sec:unfolding} demonstrates how the same sampling techniques and the same model assumptions can be used to 
+to unfold the flux points for each individual telescope. 
+
+In the future the \pymc project will change its backend from the now defunct \theano library to \emph{TensorFlow Probability}~\cite{tensorflow-prob}.
+This might allow for even quicker sampling, which becomes important when thousands of distinct observations are being considered.
+Once the Cherenkov Telescope Array is deployed, this will become a relevant use case.
+
+CTA will be the first experiment in 
+high-energy physics that operates as a public observatory. The large user community requires an open and programming-language agnostic 
+format definition. 
+While the small data sample is a great test bench for new software and algorithms, 
+more observational data must be made public in the future.
+

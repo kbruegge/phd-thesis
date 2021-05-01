@@ -1,0 +1,57 @@
+\documentclass[paper=a4,oneside, DIV=13]{scrbook}
+\usepackage{xspace}
+\usepackage{setspace}
+\usepackage{fontspec}
+\setmainfont{Minion Pro}
+% \usepackage{showframe}% to print the typearea as a frame
+\KOMAoptions{parskip=half}
+\KOMAoptions{BCOR=0mm}
+
+\newcommand{\magic}{MAGIC\xspace}
+\newcommand{\fact}{FACT\xspace}
+\newcommand{\hess}{H.E.S.S.\xspace}
+\newcommand{\hegra}{HEGRA\xspace}
+\newcommand{\veritas}{VERITAS\xspace}
+
+\title{Unmasking the Gamma-Ray Sky}
+\subtitle{Comprehensive and Reproducible Analysis for Cherenkov Telescopes}
+\author{Kai Brügge}
+
+\begin{document}
+\begin{titlepage}
+    \KOMAoptions{BCOR=0mm}
+    \makeatletter
+    \begin{center}
+    {\setstretch{1.2}%
+      \begin{Huge}%
+        \@title
+      \end{Huge}\\[0.2cm]
+      %
+      \begin{Large}
+        \@subtitle
+      \end{Large}\\
+      %
+      \emph{by}\\
+      \@author\\
+      %
+      \vspace{0.8cm}
+      This abstract is submitted in partial fulfillment
+      of the requirements for the degree of\\
+      \emph{Dr. rer. nat.}\\
+      at\\
+      \textsc{Technische Universität Dortmund}
+      
+      \vspace{1.cm}
+      Supervised by \\
+    Prof.\,Dr.\,Dr.\,Wolfgang Rhode\,  and\,   Prof.\,Dr.\,Kevin Kröninger
+
+    \par}
+
+    \end{center}
+    
+    \input{contents/abstract.tex}
+
+    \makeatother
+  \end{titlepage}
+
+\end{document}

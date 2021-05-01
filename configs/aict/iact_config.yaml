@@ -1,0 +1,123 @@
+# seed for the random number generators,
+# to make things reproducible
+seed: 0
+
+# telescope_type_key: telescope_type_name
+telescope_events_key: telescope_events
+array_events_key: array_events
+runs_key: runs
+
+multiple_telescopes: True
+
+# config for the energy regression
+energy:
+  regressor : |
+    ensemble.ExtraTreesRegressor(
+        n_estimators=200,
+        min_samples_split=100,
+        n_jobs=-1,
+    )
+
+  log_target: True
+
+  target_column: mc_energy
+
+  n_cross_validations : 5
+
+  # Define the name of the category you want to find.
+  # It will be written as <class_name>_prediction
+  class_name: gamma_energy
+
+  # Define the name of the column that contains the
+  # name of the telescope
+  telescope_type_key: telescope_type_name
+
+  features:
+    - num_triggered_telescopes
+    - width
+    - length
+    - skewness
+    - kurtosis
+    - intensity
+    - camera_type_id
+    - telescope_type_id
+    - total_intensity
+    - average_intensity
+    - h_max
+    - distance_to_reconstructed_core_position
+    - num_triggered_lst
+    - num_triggered_mst
+    - num_triggered_sst
+    - mirror_area
+    - focal_length
+    - leakage1_intensity
+    - leakage2_intensity
+    - leakage1_pixel
+    - leakage2_pixel
+    - concentration_pixel
+    - concentration_core
+    - concentration_cog
+    - r
+
+  feature_generation:
+    needed_columns:
+      - width
+      - length
+      - intensity
+    features:
+      area: width * length
+      width_length: 1 - (width / length)
+      log_size: log(intensity)
+      log_size_area: log(intensity) / (width * length)
+
+# config for the g/h separation
+separator:
+  classifier : |
+    ensemble.ExtraTreesClassifier(
+        n_estimators=200,
+        min_samples_split=100,
+        criterion='entropy',
+        n_jobs=-1,
+    )
+  
+  n_cross_validations : 5
+
+
+  features:
+    - num_triggered_telescopes
+    - width
+    - length
+    - skewness
+    - kurtosis
+    - intensity
+    - camera_type_id
+    - telescope_type_id
+    - total_intensity
+    - average_intensity
+    - h_max
+    - distance_to_reconstructed_core_position
+    - num_triggered_lst
+    - num_triggered_mst
+    - num_triggered_sst
+    - mirror_area
+    - focal_length
+    - leakage1_intensity
+    - leakage2_intensity
+    - leakage1_pixel
+    - leakage2_pixel
+    - concentration_pixel
+    - concentration_core
+    - concentration_cog
+    - r
+
+
+  feature_generation:
+    needed_columns:
+      - width
+      - length
+      - intensity
+    features:
+      area: width * length
+      width_length: 1 - (width / length)
+      log_size: log(intensity)
+      log_size_area: log(intensity) / (width * length)

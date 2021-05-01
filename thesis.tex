@@ -1,0 +1,284 @@
+\documentclass{mimosis}
+\usepackage{metalogo}
+\usepackage{pgf}
+\usepackage{pgfplots}
+\usepackage{fontawesome}
+\usepackage{hepnicenames}
+\usepackage{relsize}
+\usepackage{pythonhighlight}
+\usepackage{wrapfig}
+\usepackage{scalerel}
+\usepackage{mdframed}
+\usepackage{bm}
+\usepackage{multicol}
+\usepackage{rotating}
+\usepackage{pdfpages}
+\usepackage{blindtext}
+\usepackage[activate={true,nocompatibility},final,tracking=true, factor=1050,stretch=10,shrink=10]{microtype}
+\SetTracking{encoding={*}, shape=sc}{40}
+
+
+\RedeclareSectionCommand[
+  tocpagenumberformat=\textbf
+]{chapter}
+
+\RedeclareSectionCommand[
+  tocpagenumberformat=\textbf
+]{part}
+
+% \overfullrule=2mm
+
+\usepackage{listings}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% caption settings
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\captionsetup{font=small, labelfont=bf, format=plain}
+
+
+\DeclareSIUnit\px{px}
+\DeclareSIUnit\year{yr}
+\DeclareSIUnit\century{century}
+\DeclareSIUnit\lightyear{ly}
+\DeclareSIUnit\gauss{G}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Fonts
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\setmainfont{Minion Pro}
+\newfontfamily{\lstsansserif}[Scale=0.9,LetterSpace=0.0]{Fira Code}
+
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null,y,n},
+  keywordstyle=\color{darkgray}\bfseries,
+  ndkeywordstyle=\color{black}\bfseries,
+  literate={*}{{\lstsansserif*}}1,
+  % identifierstyle=\color{black},
+  sensitive=false,
+  comment=[l]{\#},
+  commentstyle=\color{gray}\ttfamily,
+  moredelim=[l][\color{orange}]{\&},
+  % stringstyle=\color{blue}\ttfamily,
+}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Bibliography
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% I like the bibliography to be extremely plain, showing only a numeric
+% identifier and citing everything in simple brackets. The first names,
+% if present, will be initialized. DOIs and URLs will be preserved.
+
+\usepackage[%
+autocite     = plain,
+backend      = biber,
+doi          = true,
+eprint       = true,
+url          = true,
+giveninits   = true,
+hyperref     = true,
+% isbn         = false,
+maxbibnames  = 300,
+maxcitenames = 300,
+maxnames     = 5,
+sortcites    = true,
+style        = numeric,
+]{biblatex}
+
+\setlength\bibitemsep{0.8\baselineskip}
+\patchcmd{\bibsetup}{\interlinepenalty=5000}{\interlinepenalty=10000}{}{} % no break of entr
+\input{bibliography}
+\bibliography{thesis}
+
+
+\makeglossaries
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%software names
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\gammapy}{\texttt{gammapy}\xspace}
+\newcommand{\naima}{\texttt{naima}\xspace}
+\newcommand{\emcee}{\texttt{emcee}\xspace}
+\newcommand{\python}{Python\xspace}
+\newcommand{\java}{Java\xspace}
+\newcommand{\corsika}{CORSIKA\xspace}
+\newcommand{\simtel}{\texttt{sim\_telarray}\xspace}
+\newcommand{\numpy}{\texttt{numpy}\xspace}
+\newcommand{\scipy}{\texttt{scipy}\xspace}
+\newcommand{\mars}{\texttt{MARS}\xspace}
+\newcommand{\eventdisplay}{\texttt{Eventdisplay}\xspace}
+\newcommand{\sklearn}{\texttt{scikit-learn}\xspace}
+\newcommand{\rootcern}{\texttt{ROOT}\xspace}
+\newcommand{\ctapipe}{\texttt{ctapipe}\xspace}
+\newcommand{\astropy}{\texttt{astropy}\xspace}
+\newcommand{\matplotlib}{\texttt{matplotlib}\xspace}
+\newcommand{\aicttools}{\texttt{aict-tools}\xspace}
+\newcommand{\pandas}{\texttt{pandas}\xspace}
+\newcommand{\hdf}{\texttt{HDF5}\xspace}
+\newcommand{\yaml}{\texttt{yaml}\xspace}
+\newcommand{\ctaplots}{\texttt{ctaplots}\xspace}
+\newcommand{\jayct}{\texttt{jayct}\xspace}
+\newcommand{\flink}{\texttt{flink}\xspace}
+\newcommand{\make}{\texttt{make}\xspace}
+\newcommand{\snakemake}{\texttt{snakemake}\xspace}
+% \newcommand{\scikit-learn}{\texttt{scikit-learn}\xspace}
+\newcommand{\pymc}{\texttt{PyMC3}\xspace}
+\newcommand{\theano}{\texttt{Theano}\xspace}
+\newcommand{\pytorch}{\texttt{PyTorch}\xspace}
+\newcommand{\tensorflow}{\texttt{Tensorflow}\xspace}
+% open gamma-ray astro format abbreviation
+\newcommand{\oga}{OGA\xspace}
+
+\newcommand{\cuda}{CUDA\xspace}
+
+\newcommand{\ssclong}{Synchrotron Self-Compton\xspace}
+% \newcommand{\scipy}{\texttt{scipy}\xspace}
+\newcommand{\cpp}{C\nolinebreak\hspace{-.05em}\raisebox{.3ex}{\relsize{-2}{\textbf{+}}}\nolinebreak\hspace{-.10em}\raisebox{.3ex}{\relsize{-2}{\textbf{+}}}\xspace}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% telescope names
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\magic}{MAGIC\xspace}
+\newcommand{\fact}{FACT\xspace}
+\newcommand{\hess}{H.E.S.S.\xspace}
+\newcommand{\hegra}{HEGRA\xspace}
+\newcommand{\veritas}{VERITAS\xspace}
+\newcommand{\whipple}{WHIPPLE\xspace}
+\newcommand{\fermilat}{Fermi-LAT\xspace}
+\newcommand{\fermi}{Fermi\xspace}
+\newcommand{\kascade}{KASCADE\xspace}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% math and variables
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\etrue}{E_T\xspace}
+\newcommand{\eest}{E_\text{Est}\xspace}
+\newcommand{\Non}{N_\text{on}\xspace}
+\newcommand{\Noff}{N_\text{off}\xspace}
+\newcommand{\tobs}{t_{\text{obs}}\xspace}
+\newcommand{\talpha}{t_{\alpha}\xspace}
+
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\edisp}{\mathbf{p_D}\xspace}
+\newcommand{\aeff}{A_\text{eff}\xspace}
+\newcommand{\ddp}[1]{\frac{\partial}{\partial #1}}
+\newcommand{\dddp}[2]{\frac{\partial #1}{\partial #2}}
+% \newcommand*{\annot}[1]{\tag*{\footnotesize{\textcolor{black!50}{#1}}}}
+\newcommand{\erf}{\operatorname{erf}}
+\newcommand{\github}[1]{\url{https://github.com/#1}~\faGithub}
+\newenvironment{nscenter}
+ {\parskip=0.7em\par\nopagebreak\centering}
+ {\par\noindent\ignorespacesafterend}
+\newcommand{\githubcenter}[1]{
+  \begin{nscenter}
+  \url{https://github.com/#1}~\faGithub
+  \end{nscenter}
+}
+
+
+
+\renewcommand*{\partpagestyle}{empty}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% useful stuff
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}} %% https://tex.stackexchange.com/questions/42726/align-but-show-one-equation-number-at-the-end
+
+
+
+
+\hyphenation{Che-ren-kov}
+\hyphenation{Gravi-tational}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% glossary and abbreviations
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\RedeclareSectionCommand[tocnumwidth=1.5em]{part}
+\RedeclareSectionCommand[tocnumwidth=1.5em]{chapter}
+\RedeclareSectionCommand[tocnumwidth=2.1em]{section}
+
+
+\renewcommand*{\coverpagetopmargin}{0mm}
+\renewcommand*{\coverpageleftmargin}{0mm}
+\renewcommand*{\coverpagerightmargin}{0mm}
+\renewcommand*{\coverpagebottommargin}{0mm}
+
+\setcounter{tocdepth}{1}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Incipit
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\frontmatter
+
+\includepdf{build/titlepage.pdf}
+% \include{contents/titlepage_twopaged}
+\newpage
+\null
+\thispagestyle{empty}
+% \newpage
+% \newpage
+\include{contents/abstract}
+\KOMAoptions{open=left}
+\tableofcontents
+\KOMAoptions{open=right}
+
+\mainmatter
+
+\setpartpreamble[o]{%
+\tikz[remember picture,overlay] \node[opacity=0.25,inner sep=150pt] at (current page.center){\includegraphics[width=0.9\paperwidth,height=0.9\paperheight]{figures/contours_mst.jpg}};%
+}
+\part{Open Cherenkov Astronomy}
+\include{contents/introduction_1}
+\include{contents/theory}
+\include{contents/observation}
+\include{contents/crab_sed}
+\include{contents/spectral}
+\include{contents/conclusion_1}
+\setpartpreamble[o]{%
+\tikz[remember picture,overlay] \node[opacity=0.25,] at (current page.center){\includegraphics[width=0.9\paperwidth,height=0.9\paperheight]{figures/contours_sst.jpg}};%
+}
+\part{Reproducible Data Analysis for CTA}
+\include{contents/introduction_2}
+\include{contents/reco}
+\include{contents/ml}
+\include{contents/rta}
+\include{contents/sensitivity}
+\include{contents/repro}
+\addtocontents{toc}{\protect\setcounter{tocdepth}{-1}}
+\include{contents/conclusion_2}
+% This ensures that the subsequent sections are being included as root
+% items in the bookmark structure of your PDF reader.
+
+\appendix
+\bookmarksetup{startatroot}
+\addtocontents{toc}{\protect\setcounter{tocdepth}{1}}
+\addcontentsline{toc}{chapter}{Appendix}
+\include{contents/appendix}
+\newpage
+
+\backmatter
+\include{contents/acknowledgments}
+
+\listoffigures
+\listoftables
+\cleardoublepage
+
+\begingroup
+\renewcommand*{\bibfont}{\small}
+\setstretch{1}
+\setlength\bibitemsep{6pt}
+\emergencystretch=1em
+\printbibliography[heading=bibintoc]
+\endgroup
+
+  
+
+\end{document}

@@ -1,0 +1,111 @@
+\chapter{A Prototype for  Real Time Analysis}
+\label{ch:rta}
+One of CTA's primary goals is to facilitate multi-wavelengths observations~\cite[Chapter~9]{cta:science}. 
+Observation of serendipitous events and response to multi-messenger alerts put strong constraints CTA's data acquisition system.
+The short timescale capabilities of CTA are a key element in the design process.
+The telescopes mechanical systems capable to target any point in the sky within 90 seconds. 
+Transient events or flaring sources, e.g. active galactic nuclei that increase the energy output by orders of magnitude within tens of seconds, 
+are of major scientific interests for CTA and the entire astroparticle community.
+CTA will run a continuos real-time analysis (RTA) which operates on the on-site computing infrastructure.
+This allows CTA to alert facilities operating in other wavelengths for fast follow-up observations. 
+Official CTA requirements state that the on-site analysis must be able to notify operators 
+of transient events within just 30 seconds of recording the data.
+% During observation, the southern CTA observatory can trigger up to \num{60000} events per second.
+Judging from the simulations used for my \ctapipe based analysis,
+the rate for protons and electrons is approximately \input{build/theta_square_rate_raw.txt} events per second. That is \emph{after} the preprocessing has been applied.
+The total trigger rate will be even higher.
+These staggering event rates  signify the challenges which have to be overcome by the real-time analysis system.
+CTA's on-site computing resources are concentrated in one main cluster. Additionally, each telescope is equipped with a \emph{camera server} that performs a low-level 
+calibration of the data.
+The data will then be send from the corresponding camera server to a central trigger via ethernet.
+This software trigger bundles the single telescope-events into array-events if they arrive coincidentally and discards them otherwise. 
+The RTA will operate on calibrated images. The process of integrating and calibrating the 
+raw signal data is the responsibility of dedicated software which will run on the camera servers or some central facility.
+Current plans envision that CTA's real-time analysis will receive the calibrated images via multiple network endpoints.
+As is often the case in the world of high-energy physics, self-built solutions for handling these data streams are currently being developed 
+by multiple physicists and engineers in CTA member institutions.
+Here I propose and alternative approach. 
+
+Over the past decade or so, a plethora of distributed computing frameworks have been popularized
+by the big data-driven companies like Google, Twitter, Facebook or Amazon. Some of these solutions are
+slowly being introduced in places like the LHC at CERN~\cite{hadop_cern}.
+In the astroparticle community, adoption of these new computing technologies is reluctant at best.
+All popular \enquote{big-data} frameworks such as Spark~\cite{spark}, Storm~\cite{storm}, and Heron~\cite{heron} support fault tolerance computing
+and high availability mechanisms to recover from hardware or network failures.
+% Analyzing CTA data under time and resource constraints in near real time while using current Big-Data technologies
+% fits well into the research topics of the collaborative research center (SFB 876) at TU Dortmund.
+% As a collaborative work between physicists, computer scientists and software engineers it aims to close
+% the interdisciplinary gap between those fields by combining the domain knowledge of physicists and computer scientists.
+As part of my research stay at CEA Paris, I developed a prototype for analyzing data from the CTA array~\cite{rta_adass} using
+a well established open-source framework for distributed computing called \texttt{Apache Flink}~\cite{flink}.
+The resulting program, dubbed \jayct, can be executed in a distributed manner on heterogenous infrastructure without the need for 
+hand-written parallelization routines.
+I chose the \flink framework for \jayct due to the simplified setup and more comfortable high-level API compared to other frameworks.
+The program performs image cleaning, calculates Hillas parameters, reconstructs the event's direction, and applies pre-trained machine-learning models for particle and energy prediction.
+Like most big-data processing frameworks, \flink is executed on the Java Virtual Machine (JVM). 
+The big-data ecosystem almost exclusively relies on the Java runtime due to its remote debugging features and capability 
+to execute compiled programs on any operating system and hardware platform. 
+The reconstruction algorithms in \jayct are essentially a Java re-implementation of \fact software and \ctapipe methods.
+
+Frameworks for distributed streaming such as \flink, provide high-level abstractions that allow the user to model the dataflow as a graph in terms if sources and sinks.
+In this use case, the \flink data sources output calibrated images which were generated beforehand.
+The source is connected to the sink nodes via the composition of map, filter, windowing, and aggregation operations.
+Each step in the computation is distributed to an arbitrary number of parallel \emph{slots}. The location of the slots is not 
+defined by the user, but instead is automatically delegated to any physical machine with sufficient resources.
+To emulate the behavior of CTA's real-time analysis, we modeled multiple data sources in \jayct which access the simulated images.
+The results are dumped into a single sink which writes the results to a \texttt{csv} file. 
+The \jayct program supports two modes for distributing the events between the test machines.
+In the first variant, each image in an event gets treated separately for the calculation of the image parameters.
+The image cleaning is performed on all images in a loop before they are split into separate data items.
+Then the Hillas parametrization, background suppression, and energy prediction is applied to each image separately before they get collected based on their event ID.
+This last step is performed in a windowed aggregation operation which accumulates the images within a fixed window of 5 seconds. 
+% \begin{lstlisting}[language=Java, ]
+  
+%   source.flatmap((event, out) -> {
+%       List<ShowerImage> showerImages = TailCut.onImagesInEvent(event);
+%       showerImages.forEach(i -> out.collect(i);
+%     })
+%     .map(value -> {
+%         Moments moments = HillasParametrization.fromShowerImage(value.f0);
+%         return moments;
+%     })
+%     .map(value -> performPrediction(value) )
+%     .keyBy(value -> value.eventID)
+%     .timeWindow(Time.seconds(5))
+%     .aggregate(accumulator -> accumulator.average())
+%     .writeAsCsv("./output.csv");
+
+% \end{lstlisting}
+
+% These windowed aggregation operations are quite powerful on their own behalf. In fact, these methods could used 
+% to build a fault-tolerant event builder or software trigger for CTA.
+% Operations such as windowing and grouping are the main design concepts of distributed streaming frameworks. 
+
+The second, and arguably easier,  approach to distributing the computation, treats each array-event independently. 
+In this case the images belonging to one array-event are not separated and no windowed aggregation operation is necessary.
+\Cref{fig:rta} shows the event rates achieved by this second variant on just two machines. 
+The thick line shows the mean data rate achieved by \jayct. It stays close to \num{30000} events per second which is well above the estimated 
+background event rate. 
+In this, admittedly simplified, setup, two or three large machines will suffice to perform CTA's real-time analysis. 
+Already at this point in time, with only one LST prototype operating, powerful computing infrastructure that consists of several hundred 
+dedicated compute nodes is running on La Palma. 
+Using established frameworks for distributed computing can help to bring down the cost of hardware, energy, and maintenance for CTA.
+The big-data industry has produced many battle tested solutions for these types of problems. There is no need to reinvent the wheel.
+
+The source code for the \jayct real-time analysis prototype can accessed at
+\githubcenter{kbruegge/jayct}
+
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{build/rta.pdf}
+    \caption[Real-time analysis event rates]{Two machines were used to benchmark the event rates reached by \jayct.
+     The gray dots indicate the sampled event rates in a \SI{100}{\milli\second} window. The bold line shows a running average over 1 minute.
+     The two thinner lines show the mean event rates of the single machines. 
+     A total of 40 out of 96 available threads were used for this test, of which 30 were blocked on one machine and 10 on the other.
+     The machines were not isolated from other users. 
+     Multiple workloads were performed by other users during the execution of this benchmark. }
+    \label{fig:rta}
+  \end{figure}
+  
+

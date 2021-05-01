@@ -1,0 +1,57 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Since the early days of the last century, scientists have been searching for the sources of cosmic radiation. 
+The discovery of cosmic rays during the daring balloon flights of Victor Franz Hess in 1912~\cite{hess_original} opened up
+an entirely new window into the universe.
+This elusive radiation, which so relentlessly bombards us from outer space, carries a wealth of information
+about the most violent processes in the cosmos. 
+Probing the gamma-ray sky is crucial to understanding the processes which drive the cosmic-ray acceleration.
+While charged cosmic rays are deflected by magnetic fields, gamma rays pinpoint back to the source and allow us to image these objects. 
+Only the combination of data from multiple facilities can help to unravel the inner workings of
+cosmic-ray sources. 
+The success of these joint campaigns has become apparent recently through the first observational evidence
+of neutrino emission from the blazar TXS 0506+056~\cite{icecube2018multimessenger}. 
+This collective effort used data from the IceCube neutrino observatory in Antarctica as well as data from the gamma-ray 
+experiments \fermi and \magic. 
+From its very beginning, the \fermi collaboration made all of its recorded data and software available to the general public.
+With the recent advent of multi-messenger astronomy it has become critical for imaging atmospheric Cherenkov telescopes (IACT)
+to openly share their data as well.
+This first part of my thesis deals mainly with the
+computation of energy spectra and flux point estimates in an open and reproducible manner and tries to motivate the need for public IACT data. 
+The text aims to convey all the essential information that is needed in order to understand the measurement process of IACTs. 
+% The following chapters serve as a single comprehensive 
+% The following chapters target the uninitiated reader 
+
+The galactic cosmic ray population is seeded by remnants of cataclysmic supernova events.
+The Crab Nebula is the prototypical object of this kind.  
+It is a steady source of bright \si{TeV} gamma-ray emission in the northern sky and is 
+continuously observed by radio, X-ray,  and gamma-ray observatories. 
+It was the first gamma-ray source detected by an imaging atmospheric Cherenkov telescope (IACT) in 1989~\cite{whipple_crab}. 
+In \cref{ch:theory} I describe the typical emission processes prevalent in supernova remnants (SNR) 
+and describe how log-parabolic energy spectra emerge in many sources of cosmic rays.
+\Cref{ch:observatories} gives an overview of experimental techniques used to observe gamma rays. 
+In \cref{ch:crab-sed} I show that the spectral energy distribution of the Crab Nebula,  in an energy range from 
+a few \si{keV} to tens of \si{TeV}, can be described with a single electron population of log-parabolic shape.
+In that chapter I model the synchrotron, inverse Compton, and \ssclong emission using the \naima~\cite{naima} program
+and fitted the model to data from six different experiments using Markov chain sampling. 
+This emphasizes the importance of open data in the Cherenkov astronomy community.
+Without open access to flux data from multiple wavelengths, no model assumptions can be validated. 
+% The ultimate goal my thesis will be to propose a reproducible and open-source analysis chain 
+% for IACTs.
+
+\Cref{ch:spectral} goes through all the harrowing details needed in order to understand the
+measurement process of IACTs, a critical part of which is the 
+computation of the instrument response functions. In \cref{sec:irf} these response functions are
+formalized in an instrument-agnostic way, 
+the ultimate goal of which is the construction of a common data format that can be used by any IACT instrument. 
+Traditionally, all IACT collaborations use their own proprietary software and data formats to produce high-level results like flux points. 
+In a mutual endeavor between the \magic, \hess, \veritas, and \fact collaborations to change the current state of affairs,
+a small data sample of Crab Nebula observations was made public in this common data format. 
+Using this data we published the first joint and fully open-source analysis of combined IACT data~\cite{joint_crab}.
+In \cref{sec:spectral_fit} I use the published event lists and instrument response functions
+to fit a log-parabolic spectral model to the IACT data using Hamilton Markov chain sampling. 
+\Cref{sec:unfolding} shows how that same data can be used to unfold the flux points for each individual instrument.
+
+

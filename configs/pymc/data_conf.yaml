@@ -1,0 +1,32 @@
+datasets:
+  magic:
+    on_radius: 0.141
+    containment_correction: False
+    bins_per_decade: 18
+    fit_range: [0.035, 30]
+
+  fact:
+    on_radius: 0.17
+    containment_correction: False
+    bins_per_decade: 18
+    stack: True
+    fit_range: [0.4, 30]
+
+  veritas:
+    on_radius: 0.10
+    containment_correction: False
+    bins_per_decade: 18
+    stack: True
+    fit_range: [0.1, 30]
+
+  hess:
+    on_radius: 0.11
+    containment_correction: True
+    bins_per_decade: 18
+    fit_range: [0.35, 30]
+
+source_position:
+  ra: '83d37m59.0988s'
+  dec: '22d00m52.2s'
+
+# exclusion_map: "exclusion_mask.fits.gz"

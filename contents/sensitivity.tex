@@ -1,0 +1,512 @@
+\renewcommand{\Non}{N_\text{on}\xspace}
+\renewcommand{\Noff}{N_\text{off}\xspace}
+\renewcommand{\tobs}{t_{\text{obs}}\xspace}
+\renewcommand{\talpha}{t_{\alpha}\xspace}
+\newcommand{\mus}{\mu_{s}\xspace}
+\newcommand{\mub}{\mu_{b}\xspace}
+\newcommand{\muon}{{\mus + \talpha \mub}\xspace}
+\newcommand{\Nsignal}{N_{s}\xspace}
+\newcommand{\Nbkg}{N_{b}\xspace}
+\newcommand{\lima}{Li\&Ma\xspace}
+\newcommand{\onregion}{\theta_{\text{on}}\xspace}
+\newcommand{\avg}[1]{\langle #1 \rangle}
+
+\chapter{Sensitivity Computation}
+\label{ch:sensi}
+
+The sensitivity curve is a widely used tool to compare different telescope types and analyses in
+terms of their detection capabilities of gamma-ray point sources.
+% The curve the potential of the instrument in terms of physics performance. 
+This energy dependent curve shows the minimum flux required for the instrument to detect a source.
+CTA was specifically build to detect unknown and faint sources in the very-high-energy gamma-ray sky. 
+The project will improve the sensitivity of \si{TeV} gamma-ray telescopes by an order of magnitude at least.
+The point source sensitivity curve is often considered to be the final proof of validity for a CTA analysis.
+
+The reference analysis for CTA is implemented in the \eventdisplay and \mars software packages. Both are closed-source programs 
+based on \cpp and \rootcern. The \eventdisplay~\cite{eventdisplay} program was originally developed for the \veritas project.
+It was adapted for CTA in order to calculate instrument responses during the early stages of the CTA development. 
+The \mars~\cite{magic_mars} project is also based on \rootcern and has been in use for the \magic telescope
+ever since its conception. The official CTA instrument responses are calculated using both \mars and \eventdisplay. 
+Detailed information about the inner workings of both analyses is sparse. Some details about the simulations are given in~\cite{cta_simulation}.
+The most detailed source of information is the internal report titled \enquote{Description of CTA Instrument Response Functions}~\cite{cta_irf_report}.
+Unfortunately this document is accessible to CTA members only. 
+The latest official performance figures can be downloaded at the CTA observatory website~\cite{cta_website}.
+%  The source code for the 
+% \mars project is only accessible to magic
+Neither \mars nor \eventdisplay interoperate with a high-level programming language, let alone the 
+official CTA pipeline prototype \ctapipe. It was an explicit goal of this thesis to 
+create an open-source pipeline based on \ctapipe and other open-source tools that rivals the physics performance of the 
+reference implementation.
+The significance and sensitivity assessments presented in this chapter are the ultimate benchmark for comparing the different analyses.
+
+Calculating a sensitivity curve involves multiple intermediary steps and large amounts of simulated data.
+The full simulations used to produce the sensitivity curve for this analysis need approximately \SI{20}{TB} of disk space.
+As mentioned previously, a fair comparison of these intermediate steps is difficult if not outright impossible.
+Many analyses apply a pre-selection of events to remove events that are likely to be miss-reconstructed. 
+Images that are not fully contained in the camera are often either removed by manual cuts or due to the way the 
+reconstruction algorithms are implemented. 
+This might consequently improve quantities like the angular and energy resolutions.
+An additional layer of complexity comes from the fact that many of the published performance curves are drawn with respect to estimated energy.
+An unbiased comparison is impossible without using the same model for energy regression. 
+Official CTA performance curves, specifically angular resolution, energy resolution, and effective area, are based on an optimized 
+event selection. The official event selection is performed by maximizing the point-source sensitivity in each energy bin independently. 
+
+In this chapter I reproduce parts of the CTA reference analysis in order to compare it to the performance of my, \python-based, open-source approach.
+As explained in \cref{sec:irf}, the detection probability 
+for a single gamma-ray shower is highly dependent on the particle's energy. To calculate the response of the detector to a 
+real source, the simulated observations have to be reweighted to the spectrum of a real astrophysical source.
+\Cref{sec:weights} gives details on how these weights are calculated.
+Previously, in \cref{sec:bg_estimates} I described how the number of background counts in an IACT observation is estimated. This approach
+has to be modified for the CTA simulations used here. The adapted method is explained in \cref{sec:bg_esitmates_mc}.
+The definition of sensitivity is strongly connected with the concept of detection significance.
+\Cref{sec:significance} describes how the detection significance of a point source is commonly defined in the IACT community.
+In that same section I optimize the event selection to find the best significance for a hypothetical observation of the Crab Nebula
+and show the infamous $\theta^2$-plot. 
+Finally, \cref{sec:sensitivity_comp} presents the result of the optimized event selection and shows the resulting point-source 
+sensitivity curve.
+
+
+\section{Event Weights}
+\label{sec:weights}
+\newcommand{\emin}{E_\text{min}}
+\newcommand{\emax}{E_\text{max}}
+\newcommand{\phisim}{\Phi_{\text{Sim}}}
+\newcommand{\asim}{A_\text{sim}}
+Events simulated by the shower simulation \corsika have their intrinsic energy distribution depend on some non-physical spectrum 
+set during configuration. In order to produce realistic estimates for the telescope's performance in terms of real physical sources, these distributions 
+have to be transformed. As mentioned before, the energy distribution of the simulated showers follows a power law. 
+While a uniform energy distribution would be preferable in many situations, such as model training for energy estimation, the computing requirements 
+increase with higher particle energy. The shower simulation has to track the interactions of each secondary particle in the atmosphere. 
+The larger the primary particle's energy, the larger the number of secondary particles and hence, the computing time. 
+In particular, we want the distribution of simulated events to look like the distribution of events from a typical gamma-ray source in the sky e.g. the Crab Nebula. 
+In addition to the different shapes of the simulated and real distributions, the absolute flux i.e. the total amount of particles 
+per area and time, of the source also needs to be recreated. 
+This is necessary to get meaningful estimates for a detection significance, e.g. $5\sigma$ in a \SI{10}{\minute} observation of the Crab Nebula, from simulations alone.
+
+The reweighing has to be performed for the signal events, the simulated gamma rays, as well as the cosmic ray background events, the simulated protons and electrons.
+The \corsika simulation is configured by providing its minimum energy $E_\text{min}$, maximum energy $E_\text{max}$, the radius of the circular area on the ground in which
+particles are distributed $A_\text{sim}$, the opening angle of the cone in which particles from an extended source are produced $\alpha$, the total 
+number of primary particles to simulate $N_\text{sim}$, and the spectral index $\gamma$
+of the power-law defining the shape of the energy distribution $E^{-\gamma}$. 
+The flux $F_\text{sim}(E) = \Phi_{\text{Sim}} E^{-\gamma}$ in terms of physical units which corresponds to these configuration settings can be found by using the fact that 
+the total number of expected counts from $F(E)$ has to equal the number of simulated counts
+\begin{equation*}
+    N_\text{sim} \stackrel{!}{=} \int_{\emin}^{\emax} \phisim E^{-\gamma} \diff{E} \cdot \asim \cdot \tobs \cdot 2\pi(1 - \cos(\alpha)) = N,
+\end{equation*}
+where $\tobs$ is the assumed observation duration. Solving for the only unknown variable, $\phisim$, results in 
+\begin{equation*}
+    \phisim = \frac{N_\text{sim}}{N}.
+\end{equation*}
+Now we can calculate the energy dependent weight $w(E)$ for each simulated event with respect to a target spectrum from an astrophysical source $F_\text{target}$.
+The weights have to be chosen so that the energy distribution of particles from the target spectrum $P_\text{target}$ equals that of the 
+simulated spectrum
+\begin{equation*}
+    P_\text{target}(E) = \int_{0}^{E} F_\text{target} (E') \diff{E'} \stackrel{!}{=} \int_{0}^{E} F_\text{sim} (E') \diff{E'} = P_\text{sim}(E),
+\end{equation*}
+which is satisfied when 
+\begin{equation}
+    w(E) = \frac{F_\text{target}(E)}{F_\text{sim}(E)}.
+\end{equation}
+These weights are used when counting the simulated events or building event distributions using histograms. To compare the sensitivity and detection significance between different analyses and 
+telescope designs, it is necessary to use the same assumptions about the target spectra. Specifically which spectral shapes are used to weigh the 
+signal and background events. 
+Throughout this chapter the simulated gamma rays are weighted 
+with the Crab Nebula spectrum as published by the \magic collaboration in 2015~\cite{magic-crab-data}. 
+The spectrum of cosmic-ray protons is taken from results of the BESS spectrometer~\cite{bess_proton} published in 2000. And last but not least, the spectrum of 
+cosmic-ray electrons which was fitted to flux points published by the \fermilat collaboration~\cite{fermi_electrons_1,fermi_electrons_2}.
+The fit was performed by the authors of CTA's reference analysis and published in the internal IRF report~\cite{cta_irf_report}.
+These spectra were chosen in agreement with CTA internal discussions which have yet to be formalized into a public document.
+\Cref{tab:weight_spectra} gives an overview over the selected spectra.
+\begin{table}
+        % \renewcommand{\arraystretch}{1.0}
+        \newcommand{\argument}{f_{\mathcal{N}}\left(\log_{10}\left(\nicefrac{E}{E_0}\right) \mid \sigma{=}0.741, \mu{=}{-}0.101\right)}
+        \caption[Reference spectra for event weights]{The spectral shapes chosen for reweighing the simulated events. The \magic spectrum for the Crab Nebula 
+        follows a log-parabolic spectral shape. The spectrum used to weigh the gamma rays has a strong influence on the event optimization. 
+        Some analyses use the \hegra spectrum published in 2004, which follows a simple power-law.
+        As seen in \cref{ch:spectral} and the measurements published by \magic later, this seems to be inaccurate. Hence, the \magic spectrum is used here.
+        The electron spectrum is the result of a fit to \fermilat data released by CTA for internal comparisons. The function $f_{\mathcal{N}}$ 
+        is the probability density of the normal distribution. The function is relatively complex as it tries to capture a \enquote{bump} in the spectral shape.
+        The cosmic-ray spectrum was chosen in 
+        accordance with the CTA analysis working group to only include protons. 
+        A more realistic alternative could be achieved by using a cosmic-ray spectrum which includes heavier nuclei as well. 
+        The reference energy is fixed to $E_0 = \SI{1}{TeV}$. The spectra are given in units of \si{cm^{-2}.s^{-1}.GeV^{-1}.sr^{-1}} for protons and electrons and 
+        \si{cm^{-2}.s^{-1}.GeV^{-1}} for the point-like gamma rays.
+        }
+        \label{tab:weight_spectra}
+        \begin{tabular*}{\textwidth}{@{}l l@{\extracolsep{\fill}} r@{}}
+            \textbf{Particle} & \textbf{Publication}  & \textbf{Shape} \\
+            \addlinespace[0.5em]
+            Gamma-Ray (Crab) & \magic (2015)~\cite{magic-crab-data} & $ \num{3.23E-8} \left(\frac{E}{E_0}\right)^{-2.47 - 0.24\log_{10}\left(\nicefrac{E}{E_0}\right)} $ \\
+            \addlinespace[0.6em]
+            Electron & \fermilat (2009, 2010)~\cite{fermi_electrons_1, fermi_electrons_2} & \\
+            \addlinespace[0.3em]
+             \multicolumn{3}{r@{}}{{\medmuskip=0mu
+             \thinmuskip=0mu
+             \thickmuskip=0mu
+             $\num{2.38E-12} E^{-3.43} \Bigl( 1 + 1.95 (e^{\argument} - 1) \Bigr) $ }} \\
+             \addlinespace[0.6em]
+            Proton & BESS (2000)~\cite{bess_proton} & $\num{9.6E-9} \left(\frac{E}{E_0}\right)^{-2.7}$\\
+        \end{tabular*}
+        
+\end{table}
+    
+\section{Background Estimation}
+\label{sec:bg_esitmates_mc}
+Point-like simulated gamma rays are used to emulate a source in the sky for which the detection significance can be calculated.
+However, unlike the \enquote{wobble mode} observations discussed in \cref{sec:bg_estimates}, the simulations place the 
+source right in the center of the field of view.
+In this case, the reflected regions method for estimating the background counts is unsuitable. 
+Since the acceptance probability drops of rapidly with increasing distance to the center, simply placing the off-regions in 
+radially symmetric fashion around the center would underestimate the number of background counts in the on-region.
+With simulated data it is, however, straightforward to disentangle the 
+contributions to the counts on the on-region $\Non =  \Nsignal + \talpha \Nbkg$, since each event is 
+labeled with the primary particle type.  
+The signal counts $\Nsignal$ are calculated from the set of point-like gamma events which meet the selection criterion given
+by the classification model that was trained beforehand.
+Then from this set of \enquote{gamma-like} events $S$, all events whose reconstructed source position lies within
+a radius of $\onregion$ to the true simulated source position are retained while all other events are discarded. 
+Using the weights $w_i$ calculated in the previous section, the number of signal counts can be calculated by 
+\begin{equation}
+    \label{eq:nsig}
+    \Nsignal = \sum_{w_i, \theta_i \in S} w_i \mathbf{1}(\theta_i < \onregion)
+\end{equation}
+The estimation of the background counts works in a similar manner. First all simulated electrons and protons which are 
+selected as \enquote{gamma-like} by passing the prediction threshold of the classifier, are gathered into the set of background 
+candidates $B$. 
+The better the background rejection by the classifier, the lower the number of events 
+in $B$. 
+Even with a strong classifier, 
+the large abundance of cosmic rays collected during observations, create a smooth distribution of background events in the field of view.
+In simulated data the amount of background data is limited by computational resources. 
+In order to produce a finely binned sensitivity curve, a minimum amount of counts are required to avoid 
+biases in the calculated significance due to fluctuations of the background counts.
+To alleviate this problem the radius around the true source position from which the background counts are estimated is 
+enlarged to a radius of \SI{1}{\degree}. The number of counts in that region is then scaled to correspond to the size of the off-region. 
+The off-region is larger than the on-region by a factor of $\nicefrac{1}{\talpha}$. The scaling factor $n$ between the size of the background region 
+and the circle with a radius of \SI{1}{\degree} is given by
+\begin{equation*}
+    n = \frac{1}{\talpha} \frac{\pi \onregion^2}{\pi \SI{1}{\degree}^2} = \frac{\onregion^2}{\talpha}
+\end{equation*}
+so that the total number of background counts in the scaled region can be estimated by 
+\begin{equation}
+    \label{eq:nbkg}
+    \Nbkg = \sum_{w_i, \theta_i \in B} n w_i \mathbf{1}(\theta_i < \SI{1}{\degree}) = \sum_{w_i, \theta_i \in B} \frac{\onregion^2}{\talpha} w_i \mathbf{1}(\theta_i < \SI{1}{\degree}).
+\end{equation}
+The estimated numbers are strongly dependent on the prediction threshold $\alpha$ and the size of the on-region $\onregion$.
+For the observation of a single point source, these two parameters can be optimized to achieve the highest \lima significance.
+CTA does not officially specify a method that defines how the background events should be estimated. 
+This introduces another source of uncertainty when comparing analyses with each other. The choice of background region has a large influence on 
+the total number of background counts. Other CTA analyses parameterize the dependence of $\Nbkg$ on the prediction threshold in each energy bin by fitting 
+functions to the background event distribution. The choice of function shape for these distributions is hard to justify and rather ad-hoc.
+
+
+\section{Detection Significance}
+\label{sec:significance}
+The conventional definition of \emph{detection} in the IACT community is a significance level of at least $5\sigma$.
+Most established analysis of IACT data follow the arguments by Li and Ma~\cite{lima} to build a statistical model
+of the measurement process in order to calculate the significance of an observation.
+% While alternatives to the Li\&Ma methods have been proposed. 
+I will recount a shortened version of the Li \& Ma argument in this section.
+Despite all the efforts taken to separate signal from background by using machine-learning models, 
+a non negligible amount of background events remain as detailed in \cref{sec:bg_estimates}.
+The number of observed counts in the signal region, the \enquote{on} region, is made up from the number 
+of actual signal counts from the source and the number of approximated background counts $\Non =  N_{\text{signal}} + \talpha \Nbkg = N_{\text{signal}} + \talpha \Noff$.
+% The background is measured in independent \enquote{off} regions which is larger than the signal region by a fact of $\frac{1}{\talpha}$.
+The expectation for the number of events in the on-region is defined accordingly as $\mu_{\text{on}} = \mus + \talpha \mub$, where 
+$\mus$ and $\mub$ are the expected signal and background counts and $\talpha$ is the relative exposure of the off-region compared with the on-region.
+See \cref{sec:stats_model} for detailed definitions. 
+We previously defined the likelihood of the data given the parameters $\mus$ and $\mub$ in \cref{eq:full_ll}.
+For a single energy bin it was defined as the product of two Poisson distributions 
+\begin{align*}
+    \operatorname{\mathcal{L}} \left( \Non, \Noff, \talpha \mid \mus, \mub \right) &=  P_{\text{on}} \left(\Non \mid  \mus + \talpha \mub \right) \cdot P_{\text{off}} \left(\Noff \mid \mub \right)\\
+    &= \frac{\left(\muon\right)^{\Non} e^{-{\muon}}}{\Non!} \cdot \frac{{\mub}^{\Noff} e^{-{\mub}}}{\Noff!}.
+\end{align*}
+The significance of a detection is calculated from a likelihood-ratio test. The null hypothesis $H_0$ is that all measured counts in the 
+signal region are due to background events alone ${\mu^{(H_0)}_s} = 0$. Respectively, the alternative hypothesis is given by ${\mu^{(H_1)}_s} > 0$.
+The likelihood ratio test statistic $\lambda$ is defined as the ratio of the null hypothesis divided by the alternative hypothesis
+\begin{equation*}
+    \lambda = \frac{\operatorname{\mathcal{L}} \left( \Non, \Noff, \talpha \mid {\hat{\mu}^{(H_0)}_s}, {\hat{\mu}^{(H_0)}_b} \right)}{\operatorname{\mathcal{L}} \left( \Non, \Noff, \talpha \mid {\hat{\mu}^{(H_1)}_s}, {\hat{\mu}^{(H_1)}_b} \right)},
+\end{equation*}
+where ${\hat{\mu}^{(H_1)}_s}$, ${\hat{\mu}^{(H_1)}_b}$ and ${\hat{\mu}^{(H_0)}_b}$ are the maximum likelihood estimates for the null and alternative hypotheses.
+The maximum likelihood estimates for the alternative hypotheses follow immediately from the definition of the problem to 
+${\hat{\mu}}^{(H_1)}_s = \Non - \talpha \Noff$ and ${\hat{\mu}}^{(H_1)}_b = \Noff$.
+Li and Ma argue that in the case of the null hypothesis, where no signal events are measured in the on-region, the estimate for the background can be 
+improved by also taking into account the amount of counted background signals in the on-region. Following that line of reasoning, the 
+maximum likelihood estimate for the expected background is ${\hat{\mu}}^{(H_0)}_b = \frac{\talpha}{\talpha + 1} (\Non + \Noff)$.
+Following Wilk's theorem~\cite{wilk} the test value can be transformed to follow a $\chi^2$ distribution with one degree of freedom 
+\begin{equation*}
+    -2 \ln (\lambda) \sim \chi^2 \quad \text{and} \quad \sqrt{-2 \ln (\lambda)} \sim |\mathcal{N}(\mu=0, \sigma=1)|
+\end{equation*}
+when the number of observations approaches infinity $n \rightarrow \infty$.
+The significance of the observation follows immediately from the value of $S = \sqrt{-2 \ln (\lambda)}$.
+Inserting the values for $\lambda$ yields the expression commonly known as the Li\&Ma significance~\cite[eq. 17]{lima} 
+\begin{equation*}
+    \label{eq:lima}
+    S =  \sqrt{ 2 \Non \ln\left( \frac{1 + \talpha}{\talpha} \frac{\Non}{\Non + \Noff} \right) \Noff \ln\left( (1 + \talpha) \frac{\Noff}{\Non + \Noff} \right)}
+\end{equation*}
+The approximation by Wilk's theorem becomes problematic for low count statistics when the parameters for the Poisson distributions lie on the edge of the 
+parameter space. Alternative solutions have been discussed by several authors~\cite{lima_ahnen,lima_casadei,lima_dalibor}. 
+The Li\&Ma solution is used in almost all publications in Cherenkov astronomy whenever a detection significance is given.
+
+The CTA analysis tries to maximize the sensitivity in each energy bin independently by varying the parameters for the event selection
+and hence changing the values for the event counts $\Non$ and $\Noff$. Three parameters are optimized in this analysis. 
+The prediction threshold $\alpha$, the size of the on and off-region $\theta$, and the telescope multiplicity. 
+The relative exposure is fixed at $\talpha = 0.2$ throughout this chapter.
+
+\Cref{fig:theta_square} shows the infamous the $\theta^2$-plot. This image is a ubiquitous tool among Cherenkov astronomers to 
+visualize source detections. 
+The image shows the distribution of events from the on and off-regions with respect to the squared distance between estimated and true source position $\theta^2$.
+Here the entire energy range of the simulations is taken into account to produce the plot so that sufficient background events are available.
+The plot shows that the CTA analysis presented here would result in a definitive detection of the Crab Nebula within a fraction of a  minute of observation time.
+To put this in perspective, the \fact telescope needs a few hours of observation time to achieve the same level of detection significance.
+
+\begin{figure}
+    \centering
+    \includegraphics{build/theta_square.pdf}
+    \caption[$\theta^2$ square plot for the Crab Nebula]{The $\theta^2$ square plot for the Crab Nebula as seen by my CTA analysis. The red curve shows the distribution of the 
+    gamma rays together with the mean of the background counts. The shaded region indicates the total distribution of background events. The gray line towards the bottom 
+    shows the part of the background distribution which is due to electrons.
+    The number of counts in the on and off-region correspond to the area under the red and black curves to the left of the vertical line. The larger the difference between the two, 
+    the stronger the detection.
+    CTA will be able to detect gamma-ray sources much quicker than any previous IACT. 
+    As this result shows, sources as bright as the Crab Nebula can be detected in less than a minute with CTA. 
+    The multiplicity of the trigger, the radius of the on-region, and the prediction threshold were optimized to maximize the significance
+    as given in \cref{eq:lima}.
+    Interestingly, the best prediction threshold in terms of significance roughly matches the 
+    location of the maximum of the balanced accuracy curve in \cref{fig:roc}.
+    The faint vertical line near \SI{0.05}{\degree} shows the radius of the signal region. 
+    The $\theta^2$-plot gives a quick visual reference of the signal to noise ratio. It is a common
+    sight in many publications~\cite{magic_theta_1, magic_theta_2}
+    and often displayed in the telescopes' control rooms.
+    }
+    \label{fig:theta_square}
+\end{figure}
+
+
+% \section{Energy Bias Correction}
+% To calculate the sensitivity curve the event selection is optimized in each bin of reconstructed energy independently. 
+% Energy dependent curves can only be compared if the energy binning is well defined.
+% CTA uses 5 bins per decade of reconstructed energy starting at \SI{0.02}{TeV}. 
+% The energy reconstruction differs between different analysis methods. 
+% Each regressor comes with an intrinsic energy bias in addition to its finite resolution.
+% The relative difference between true and estimated energy $d = \frac{\eest - \etrue}{\etrue}$ as seen in \cref{fig:energy_res_raw} can be 
+% plotted versus true or estimated energy abscissa.
+% The CTA reference analysis applies a so-called \emph{bias correction}.
+% Linear interpolation between the median values for $d$, the bias, creates a continuous function $B(\eest) = \avg{d}(\eest)$ which can be used to correct
+% the average offset in a bin of estimated energy. To ensure the smoothness of $B$ with respect to $\eest$, the energy bias is smoothed to avoid fluctuations in 
+% bins of low statistics.
+% This function is applied to the simulated signal and background events before they are distributed into the energy bins for further computations
+% \begin{equation*}
+%     \eest' = \frac{\eest}{B(\eest) + 1}.
+% \end{equation*}
+% While the usefulness of this transformation is debatable at best, it is essential when comparing the sensitivity
+% curves to the reference result. 
+
+\section{Sensitivity Computation}
+\label{sec:sensitivity_comp}
+The sensitivity of a telescope to a point-like gamma-ray source is defined as the minimum brightness the source must have in order for the telescope to detect it 
+in a predefined time interval.
+The response IACTs is highly energy dependent. Hence, the sensitivity of an instrument depends on the shape of the source's emission.
+In high-energy Cherenkov astronomy the ubiquitous Crab Nebula is chosen as the prototypical source.
+Specifically for CTA, the sensitivity is defined as the minimum flux a source with a Crab Nebula like spectral shape must have so that it will be detected 
+with a significance of $5\sigma$ within a fixed observation time of 50 hours.
+This number is calculated in bins of estimated energy in order to produce an energy dependent sensitivity curve.
+This curve can then be compared to the spectral energy distribution of different sources and the sensitivities of similar instruments.
+
+Given the counts in the on and off-region, the detection significance $S(\Non, \Noff, \talpha)$ is calculated according to \cref{eq:lima}.
+In the simulated data, these numbers can be expressed in terms of signal 
+and background counts $\Non = \Nsignal + \talpha \Nbkg$ and $\Noff = \Nbkg$.
+At this point the signal and background events are already weighted according to their assumed physical spectra and observation time as described 
+by equations~\ref{eq:nsig} and~\ref{eq:nbkg} 
+We are interested in finding the factor $x$ by which the signal events have to be scaled so that the significance $S$ reaches the required 
+minimum significance level of $5\sigma$. This can be written as a minimization problem
+\begin{equation*}
+    \hat{x} = \argmin_{\Nsignal} \bigl(5 - S(\Non = x \Nsignal + \talpha \Nbkg, \, \Nbkg,\, \talpha)\bigr)^2
+\end{equation*}
+All values except $x$ are fixed. This problem can be solved with a simple one dimensional minimization method. 
+The result $\hat{x}$ is the estimated \emph{relative sensitivity}. If the relative sensitivity is larger than one, the source 
+cannot be detected in that energy bin within the assumed observation time. If $x$ is smaller than one, it describes the 
+factor by which the source can be fainter and still be detected.
+Multiplying $x$ with the flux of the target spectrum at the center of the 
+energy bin yields the sensitivity in physical flux units.
+The statistical errors on $x$ are computed by repeatedly sampling the $\Nsignal$ and $\Nbkg$ from a Poisson distribution and recomputing 
+the sensitivity for each sample.
+
+CTA introduces two additional constraints to mitigate the effects of statistical fluctuations. 
+First, the number of excess counts has to be larger than 10, i.e $\Non - \talpha \Noff > 10$.
+Second, the excess has to be larger than the uncertainty in the number of background counts by a factor of five.
+CTA assumes a modest \SI{1}{\percent} of uncertainty leading to $\Nsignal  > 5 * \Noff * 0.01$.
+For my analysis I supplement these constraints by requiring that the total number of unweighted background events 
+in a \SI{1}{\degree} radius is larger than 80 and assuming a background uncertainty of \SI{2}{\percent}.
+
+Energy dependent curves can only be compared if the energy binning is well defined.
+CTA uses 5 bins per decade of reconstructed energy starting at \SI{0.02}{TeV}. 
+The energy reconstruction differs between different analysis methods. 
+Each regressor comes with an intrinsic energy bias in addition to its finite resolution.
+The relative difference between true and estimated energy $d = \frac{\eest - \etrue}{\etrue}$ as seen in \cref{fig:energy_res_raw} can be 
+plotted versus true or estimated energy on the abscissa.
+The CTA reference analysis applies a so-called \emph{bias correction}.
+Linear interpolation between the median values for $d$, the bias, creates a continuous function $B(\eest)$ which can be used to correct
+the average offset in a bin of estimated energy. 
+This function is then applied to the estimated energy values of the simulated signal and background events before they are distributed into the
+energy bins for further computations
+\begin{equation*}
+    \eest' = \frac{\eest}{B(\eest) + 1}.
+\end{equation*}
+While the usefulness of this transformation is debatable at best, it is essential when comparing the sensitivity
+curves to the reference result. 
+% The reference applies an additional smoothing to the 
+%  ensure the smoothness of $B$ with respect to $\eest$, the energy bias is smoothed to avoid fluctuations in bins of low statistics.
+
+To find the best sensitivity, the event selection is optimized in a brute force manner. 
+A three-dimensional grid of test values is created for the minimum event multiplicity $m$, the radius of the on-region $\theta$, and 
+the prediction threshold $\alpha$
+\begin{equation*}
+    (m, \theta, \alpha) \in \input{build/sensitivity_multiplicities.txt} \times \input{build/sensitivity_theta_cuts.txt} \times \input{build/sensitivity_prediction_cuts.txt}.
+\end{equation*}
+This grid is then evaluated for each energy bin in parallel.
+From all tested combinations of $(m, \theta, \alpha)$, the event selection that produces the lowest relative sensitivity is chosen.
+\Cref{tab:event_selection} shows the resulting values for each energy range together with
+the calculated \lima significance. 
+In order to avoid overfitting, the step size of the grid is left intentionally large.
+No independent test data is available as the amount of available background simulations is limited.
+The results of the event selection is summarized in \cref{tab:event_selection}
+% To remain close to methods employed in the reference analysis, the 
+% thresholds $\alpha$ and $\theta$ are smoothed with a gaussian kernel and then interpolated between the centers of the energy
+The selected thresholds in $\alpha$ and $\theta$ are interpolated linearly between energy
+bins in order to create continuous thresholding functions.
+The thresholds for the event multiplicity
+define a piecewise function which is constant between the edges of the energy bins. 
+An event is then either accepted or rejected based on the value of the threshold functions at the event's estimated energy.
+
+
+\begin{table}
+    \renewcommand{\arraystretch}{1.2}
+    \caption[Event selection optimization results.]{The result of the grid search of the three-dimensional parameter space in minimum event multiplicity, on-region radius $\theta$, and prediction 
+    threshold $\alpha$. These values are used to select the events for the plots that compare the performance of this analysis to the 
+    reference analysis. As expected, the significance is lower in the very-high and very-low energy bins. Both due to limited statistics and 
+    inaccurate reconstruction of direction, particle type, and energy.
+    The relative sensitivity is multiplied with the value of a flux model at the center of the energy range to produce 
+    a sensitivity curve. The shape of the curve changes depending on the shape of the target spectrum. I use the \magic log-parabolic 
+    spectrum, see \cref{tab:weight_spectra}, to create the sensitivity curve. The last row is grayed out since the result does not match all required 
+    optimization constraints.
+    One alternative approach to performing the event selection is to fix $\theta$ to the value of the angular resolution as calculated on point-like simulations. 
+    An example is shown in~\ref{ap:fixed}.
+    }
+    \label{tab:event_selection}
+    \rowcolors{3}{white!92!black}{}
+    % l@{\extracolsep{\fill}}  l@{\extracolsep{\fill}} c@{\extracolsep{\fill}} c@{\extracolsep{\fill}} c@{\extracolsep{\fill}} c
+    \begin{tabular*}{\textwidth}{c@{\extracolsep{\fill}}  c@{\extracolsep{\fill}} c@{\extracolsep{\fill}} c@{\extracolsep{\fill}} c@{\extracolsep{\fill}} c@{\extracolsep{\fill}} c}
+        \multicolumn{2}{@{}c}{\textbf{Energy Range / \si{TeV}}} & \textbf{Multiplicity} & $\bm{\theta} /  \si{\degree}$  & $\bm{\alpha}$ & \textbf{Significance} & \textbf{Relative Sensitivity} \\
+        \input{build/event_selection.txt}
+    \end{tabular*}
+\end{table}
+
+\Cref{fig:ang_res_optimized} shows the angular resolution of the CTA analysis after applying the cuts from \cref{tab:event_selection}. 
+Unlike the \cref{fig:ang_res_raw} shown previously, this plots shows the performance on the simulated point-like gamma-ray events. 
+% The event selection keeps approximately \SI{40}{\percent} of the simulated point-like gammas. 
+Beyond estimated energies of approximately \SI{1}{TeV}, the angular resolution falls below \SI{0.05}{\degree} which is equivalent to 
+the apparent radius of the Eagle nebula~\cite{objects}. This low angular resolution allows CTA to 
+map the \si{TeV} gamma-ray sky with unprecedented precision.
+% The reconstruction implemented in \ctapipe is certainly on par with the reference analysis.
+\begin{figure}
+    \centering
+    \includegraphics{build/ang_res_optimized.pdf}
+    \caption[Angular resolution with optimized event selection]{The distribution of distances between true and estimated source position.
+    As discussed for \cref{fig:ang_res_raw} the angular resolution is defined
+    as the 68\th percentile of the distance between estimated and simulated source position.
+    % The blue line shows the angular resolution 
+    % of the \ctapipe based analysis. 
+    % Only events passing cuts in multiplicity and prediction threshold as defined 
+    % by \cref{tab:event_selection} are taken into account. 
+    Unlike \cref{fig:ang_res_raw} the data here is plotted versus 
+    estimated energy to make it comparable to the reference curve, which is unfortunately not available in units of true event energy.
+    Note that no cut in the distance to the true source position $\theta$ has been applied.
+    }
+    \label{fig:ang_res_optimized}
+    \vspace*{\floatsep}% https://tex.stackexchange.com/q/26521/5764
+
+    \includegraphics{build/energy_resolution_optimized.pdf}
+    \caption[Energy resolution with optimized event selection]{The distribution of the relative distances between true and estimated energy for point-like gamma-ray simulations.
+    Unlike \cref{fig:energy_res_raw} the data here is plotted versus the estimated energy to make it comparable to the reference curve.
+    The bump in curve near \SI{50}{TeV} is due to the heavily tailed distribution of events in that range. The outliers might 
+    be due to the lack of image containment or similar effects. 
+    The median of the distribution, which is not shown here, does not exhibit this behavior and remains relatively flat.
+    Note that no cut in the distance to the true source position $\theta$ has been applied.
+    }
+    \label{fig:energy_res_optimized}
+\end{figure}
+
+Similar to the angular resolution plot, \cref{fig:energy_res_optimized} shows the energy resolution for the optimized event selection
+on point-like gamma rays.
+The resolution remains close to a value of $0.2$ for the majority of the energy range. Like the reference analysis, the resolution 
+improves with increasing energy and remains relatively constant until about \SI{20}{\TeV}.
+The bump near \SI{20}{\TeV} is due to outliers in the distribution which shift the percentile.
+In general, the energy regression seems to perform worse than the reference by at least a factor of two.
+This does not influence the point-source sensitivity 
+to a large degree as the only consequence of this is the migration of events between energy bins in the curve. 
+It might, however, have detrimental effects on the reconstruction of energy spectra. 
+
+
+\Cref{fig:eff_area_optimized} shows the effective area of this analysis compared to the reference analysis. As stated in \cref{sec:irf}, the effective 
+area is defined as the acceptance probability of the telescope multiplied by the maximum scatter area in the simulations. 
+The curves match quite well in the lowest energy range. In the range above \SI{1}{TeV} the effective area of the reference analysis is significantly larger.
+This might be due to the fact that I apply no \enquote{pre-selection} to the data whatsoever. These pre-selection cuts 
+are traditionally used in IACT analysis to remove faint or non-typical events in a manual fashion. They are usually not well-motivated 
+and often the result of subjective intuition of the researcher applying them. Hence, no manual selection takes place in the analysis presented here. 
+The colors of the points indicate the prediction threshold that has been applied. The optimization chooses larger thresholds in the medium energy range. 
+Towards the low and high-energy range separation between signal and background is not as effective and the chosen prediction threshold is lower.
+\begin{figure}
+    \centering
+    \includegraphics{build/effective_area_optimized.pdf}
+    \caption[Effective area of CTA analysis]{
+    This figure shows the effective area \emph{after} the optimized event selection has been applied.
+    In conjunction with the definition of the reference curve, cuts in telescope multiplicity, prediction threshold, and direction are used. 
+    The color of each point shows the applied prediction thresholds as defined in \cref{tab:event_selection}. 
+    The dashed gray line shows the result of the reference analysis. 
+    The additional cut in direction reduces the number of selected events by about half compared to figures~\ref{fig:ang_res_optimized} and~\ref{fig:energy_res_optimized}.
+    Its important to note that the reference analysis employs an additional smoothing operation to suppress noise which results in smoother curves.
+    }
+    \label{fig:eff_area_optimized}
+    \vspace*{\floatsep}% https://tex.stackexchange.com/q/26521/5764
+    \includegraphics{build/sensitivity.pdf}
+    \caption[Sensitivity curve of the CTA analysis]{The sensitivity curve of the \ctapipe and \aicttools based analysis for the full southern layout at the Paranal observatory site.
+    The sensitivity closely follows the reference shape indicated by the black bars. No error estimates are published for the reference results.
+    % My analysis only uses parts of the data that is available in the official CTA storage infrastructure. As running custom software on the 
+    % computing grid is not well supported by CTA at the moment, the simulated raw data was downloaded to a local storage machine and then processed.
+    The curved dashed lines show the flux of the Crab Nebula according to the log-parabolic spectrum as published by \magic~\cite{magic-crab-data}.
+    The faded point on the very-high end of the energy range does not adhere to the full selection requirements. 
+    }
+    \label{fig:sensitivity}
+
+\end{figure}
+
+
+
+\Cref{fig:sensitivity} shows the point source sensitivity curve for CTA analysis presented here.
+The gray line shows the official CTA requirement for the point source analyses. 
+This result shows that the sensitivity requirements set by CTA can easily be met by the \ctapipe based analysis 
+in conjunction with the \aicttools package. 
+In fact the sensitivity accurately matches the reference analysis and even outperforms it in some energy bins. 
+The analysis presented here is currently the only competing alternative to the \mars and \eventdisplay analysis.
+All numbers and figures presented in this chapter are calculated by a package called \ctaplots which is 
+available at 
+\githubcenter{kbruegge/cta_performance_plots}
+% \begin{sidewaysfigure}
+%     \centering
+%     \begin{minipage}[c]{0.75\textwidth}
+%         \includegraphics{build/sensitivity.pdf}
+%     \end{minipage}\hfill
+%     \begin{minipage}[c]{0.25\textwidth}
+%         \caption[]{The sensitivity curve of the \ctapipe and \aicttools based analysis for the full southern layout at the Paranal observatory site.
+%         The sensitivity closely follows the reference shape indicated by the black bars. No error estimates are published for the reference results.
+%         % My analysis only uses parts of the data that is available in the official CTA storage infrastructure. As running custom software on the 
+%         % computing grid is not well supported by CTA at the moment, the simulated raw data was downloaded to a local storage machine and then processed.
+%         The curved dashed lines show the flux of the Crab Nebula according to the log-parabolic spectrum as published by \magic~\cite{magic-crab-data}.
+%         }
+%         \label{fig:sensitivity}
+%     \end{minipage}
+% \end{sidewaysfigure}
+
+
+

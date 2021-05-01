@@ -1,0 +1,35 @@
+
+\chapter{Notes on Reproducibility}
+\label{ch:repro}
+
+The computation of the optimized event selection is the final link in a long chain of analysis steps. 
+Many terabytes of raw data are preprocessed into tabular data on which machine-learning algorithms can be trained. 
+The data needs to be split into independent test and training sets to avoid biases. All meta data concerning the air-shower
+simulation has to be carried along so that the effective area can be calculated for any arbitrary subset of the data. 
+The entire process is a composition of many different programs which are in principle self-contained. 
+Without proper automatization, the whole construction is rather fragile, if not dangerously prone to error.
+
+Each figure and table in this document has an implicit dependency on some input data.
+\Cref{tab:event_selection}, for example, shows the results of the optimized event selection.
+The table can only be constructed if the machine-learning models described in \cref{ch:ml} have been applied to the test data 
+which resulted from the preprocessing performed in \cref{ch:cta_analysis}. 
+The models themselves in turn depend on the configuration files and the training data. 
+These data dependencies can be explicitly modeled with tools such as 
+\make~\cite{make} or \snakemake~\cite{snakemake}.
+I chose \make because it is supported on essentially every operating system that is in use today.   
+Data dependencies are described by so-called \emph{Makefiles}. The \make program builds a directed, acyclic graph from 
+the Makefile and executes each step in topological order. 
+% The first call to \make executes the entire graph so that all defined outputs are generated.
+% Subsequent calls to \make only rebuild the sub-graph which depends on the modified input.
+% Originally build to speed up the compilation of large software projects, its ability to model data dependencies in 
+% a single text file is useful in a more general context.
+This entire document can be build from a single call to the \make program. Each machine-learning model, fit, figure, table, and automated 
+\LaTeX snippet is part of the execution graph. 
+\Cref{fig:dep_graph} in the appendix shows a visual representation of the dependency graph for this document.
+
+All software used for this thesis was written in the \python programming language in version 3.7.2. Each plot was created using the 
+\matplotlib~\cite{matplotlib} library version 3.1.0. A full list of \python dependencies can be found in the \texttt{requirements.txt} file that is 
+attached in \cref{sec:requirements}.
+The \LaTeX code for this document and all scripts needed to create the figures and tables will be uploaded after official publication to 
+\githubcenter{kbruegge/phd-thesis}
+

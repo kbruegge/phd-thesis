@@ -1,0 +1,346 @@
+\chapter{Acceleration of Cosmic Rays and Gamma Rays}
+\label{ch:theory}
+Earth's atmosphere is constantly being bombarded by very-high-energy particles of cosmic origin.
+Among these are photons, neutrinos, electrons, protons and heavier nuclei.
+The astroparticle community usually refers to the hadronic particles as \emph{cosmic rays}, while neutrinos and high-energy photons
+are viewed as separate entities.
+The discovery of cosmic rays and their byproducts in the atmosphere is attributed to the balloon experiments performed by Victor
+Hess in the year 1912~\cite{hess_original, hess_nytimes}.
+The term \emph{cosmic rays} was coined by robert A. Millikan 19 years later~\cite{millikan} after performing his own
+observations of ionizing radiation at several different altitudes.
+Cosmic rays cover a vast range of energy spanning 15 orders of magnitude from a few \si{\kilo\eV} to several \si{EeV}.
+One major goal in the field of cosmic-ray astronomy is to learn more about the origin of these cosmic messengers.
+The key mechanism that drives cosmic rays is believed to be shock acceleration.
+Satellites have gathered direct evidence of particle
+acceleration in the \si{\kilo\eV} to \si{\mega\eV} range in interplanetary shocks in our solar system.
+Even in our direct neighborhood, Earth's bow shock with the surrounding medium, particles are accelerated to higher energies~\cite{bow_shock}.
+Interactions in the hot and dense plasma ejected by solar flares accelerate particles up to \si{GeV} energies~\cite[236]{gaisser}.
+Beyond \si{\giga\eV} energies, however, the engines for cosmic particle acceleration lie outside of our solar system.
+The population of galactic cosmic rays is most likely driven by shock acceleration in supernovae remnants
+within the Milky Way.
+At even higher energies, beyond \si{EeV}, galactic sources cannot account for the observed fluxes. Protons at these energies
+are not confined by the magnetic fields in our galaxy and can escape into the intergalactic regions.
+The confinement of a particle is governed by its radius of gyration.   
+A particle with rest mass $m_0$ and Lorentz factor $\gamma$ has kinetic energy $E_{\text{kin}}$
+\begin{equation*}
+  E_{\text{kin}} = (\gamma - 1) m_0 c^2.
+\end{equation*}
+Given the cosmic ray energy of \SI{1}{EeV} and rearranging for $\gamma$ yields
+\begin{equation*}
+  \gamma = \frac{E_{\text{kin}}}{ m_0 c^2}  +  1 \approx \num{1.1E9}.
+\end{equation*}
+The gyradius radius $r$ of a charged particle with charge $q$ which is moving at velocity $v$ perpendicular to a magnetic field of strength $B$ is
+\begin{equation*}
+  r = \frac {p}{ q B} = \frac{\gamma m v}{q B}.
+\end{equation*}
+Assuming a mean magnetic field of $B = \SI{5E-10}{T} $ within the Milky Way~\cite{haverkorn_magnetic}, results
+in a gyration radius of approximately $r = \SI{5e18}{\metre} = \SI{528}{\lightyear}$. At these energies particles can escape
+the local arm of the galaxy. Hence, particles with higher energies most likely originate in extragalactic sources.
+Jets of active galactic nuclei (AGN) are widely accepted to be the source of these particles.
+Figure~\ref{fig:cosmic_rays} shows the differential energy spectrum of cosmic rays.
+By multiplying the flux with $E^{2.7}$ the steep power law becomes flat. The first bend in the spectrum around
+\SI{1E3}{TeV} is often called the \emph{knee}. The second bend is called the \emph{ankle} near
+\SI{3E6}{TeV} and its often associated with the appearance of extra-galactic particles. The shape of the spectrum
+between the knee and the ankle is still matter of some debate. The steep cutoff visible near \SI{5E7}{TeV} is assumed to be due to the
+Greisen–Zatsepin–Kuzmin (GZK) cutoff~\cite[209]{gaisser}. The origin and composition of cosmic rays beyond the cutoff is still unclear.
+Shock acceleration can be modeled by a process called \emph{Fermi acceleration} and a \emph{plasma dynamic} approach.
+Both approaches predict power-law like flux. They are briefly described in section \ref{sec:fermi}.
+
+The production and acceleration of cosmic rays is strongly intertwined with the production of gamma rays and neutrinos.
+Differential energy spectra, or flux curves,  show the energy resolved light emission of an astrophysical source.
+In the gamma-ray community they are usually given in units of \si{cm^{-2}.s^{-1}.TeV^{-1}}. The flux is often scaled 
+by the square of the photon energy $E^2$ for better visual representation leading to units of \si{cm^{-2}.s^{-1}.TeV}.
+This scaled quantity is often called a spectral energy distribution (SED)~\cite[3]{gaisser}.
+Both $\nu f_{\nu}$ and $E^2 \frac{\diff{N}}{\diff{E}}$ are common shorthands for these SEDs. I will use the latter designation
+in this text.
+SEDs are of major interest to many astronomers, as their shape can be used to validate or invalidate models of acceleration mechanisms in these sources.
+SEDs often span more than 15 orders of magnitude in photon energy and combine a multitude of instrument technologies and 
+disciplines. 
+The gamma rays in the very-high-energy range of the SEDs, above \SI{100}{GeV}, are produced by either synchrotron radiation or inverse Compton (IC) scattering
+on photon fields. Sections \ref{sec:synchro} and \ref{sec:ic} give a little more detail about the shape of synchrotron and IC spectra
+for supernova remnants.
+Bright sources are extensively monitored by radio, infrared, optical, X-ray and gamma-ray telescopes.
+The most prominent source of gamma radiation within our galaxy is the Crab Nebula.
+It is a supernova remnant which exploded in 1054. The event was recorded by Chinese astronomers which reported a
+\enquote{Guest Star} which had been visible for three weeks during daytime~\cite{crab_chimera}.
+A scan of the original report by the astronomer and a translation can be found in \cref{ap:crab}.
+The matter ejected during the explosion has since expanded into a shell of hot plasma with a radius of about 1.5 lightyears~\cite{crab_chimera}.
+Extensive observations from in the radio, optical, X-Ray, and gamma-ray bands, have made it
+one of the most popular objects for astronomers to study.
+For very-high-energy (VHE) gamma-ray astronomers in particular, the Crab Nebula is of major interest due to its steady and bright emission of photons.
+In Cherenkov astronomy it is common to test new data analysis techniques on data from \emph{the Crab}, as it is often called in the
+community. The analysis I performed for this thesis is no exception.
+\begin{figure}
+  \centering
+  \input{build/cosmic_rays.pgf}
+  \caption[The all-particle cosmic-ray spectrum.]{All particle cosmic-ray spectrum measured by the Auger, IceTop, Tibet, Kascade, and HiRes experiments.
+  The energies span 10 orders of magnitude and range from a few \si{\GeV} to some \SI{100}{EeV}. The plot only shows
+  the high-energy end of the spectrum starting range from \SI{100}{\TeV}.
+  Cosmic rays can reach energies equivalent of a baseball flying at \SI[per-mode=fraction,fraction-function=\nicefrac]{50}{\kilo\metre\per\hour}.
+  The plotted flux is multiplied by $E^{2.7}$ to highlight the structural features of the spectrum. The \emph{knee} and \emph{ankle}
+  are visible at approximately \SI{1}{PeV} and \SI{5}{EeV}.}
+  \label{fig:cosmic_rays}
+\end{figure}
+\newpage
+\section{Fermi Acceleration}
+\label{sec:fermi}
+In 1949 Enrico Fermi published a model to explain the high energies observed by cosmic-ray detectors and the power-law shape of the cosmic-ray spectra~\cite{fermi_original}.
+Prior to Fermi's publication the origin of the cosmic rays at the highest energies was unclear. 
+Fermi summarized the situation as follows:
+\begin{displayquote}
+  The argument against the conventional view that cosmic radiation may extend at least to all the galactic 
+  space is the very large amount of energy that should be present in form of cosmic radiation if it were to extend to such a huge space.
+  Indeed, if this were the case, the mechanism of acceleration of the cosmic radiation should be extremely efficient.
+\end{displayquote}
+The principal idea published by Fermi is that particles, on average, gain energy by \emph{collisions} with randomly moving magnetic fields.
+These \emph{magnetic mirrors} were believed to be clouds of plasma moving at high velocities in random directions.
+As to the origin of these fields, no explanation was given.
+The power-law energy spectrum for this type of particle acceleration follows from stochastic arguments~\cite[\S12.2.1]{gaisser}.
+Assume some test particle gains energy $\Delta \gamma = \alpha \gamma$ in each collision with the magnetic mirror.
+After $n$ collisions the energy will be
+\begin{align*}
+  \gamma_n &= \gamma_{n-1} + \gamma_{n-1} \alpha \\
+  \gamma_n &= \gamma_{n-1}(1 + \alpha) \\
+  \gamma_n &= \gamma_{n-2}(1 + \alpha)(1 + \alpha) \\
+  &\setbox0\hbox{=}\mathrel{\makebox[\wd0]{\hfil\vdots\hfil}} \\ %see https://tex.stackexchange.com/questions/7650/centering-vdots-in-a-system-of-many-equations
+  \gamma_n &= \gamma_0 (1 + \alpha)^n,
+\end{align*}
+where $\gamma_0$ is the initial energy of the particle. Solving this equation for $n$ yields
+\begin{equation*}
+    n = \frac{\log\left(\frac{\gamma_n}{\gamma_0}\right)}{\log(1 + \alpha)}.
+\end{equation*}
+In this scenario, the particle keeps bouncing around between the moving magnetic fields until it escapes the acceleration region.
+Let $P_{\text{esc}}$ be the constant probability for a particle to escape its confinement at any given time.
+Then,  after $n$ collisions, the probability for the particle to remain within the acceleration region is  $P_n = (1 - P_{\text{esc}})^n$.
+Substituting $n$ and using the identity $x^{\log(y)} = y^{\log(x)} $ results in
+\begin{align*}
+  P_n &= (1 - P_{\text{esc}})^n \\
+      &= (1 - P_{\text{esc}})^{\frac{\log\left(\frac{\gamma_n}{\gamma_0}\right)}{\log(1 + \alpha)}} \\
+      &= \left((1 - P_{\text{esc}})^{\log\left(\frac{\gamma_n}{\gamma_0}\right)}\right)^{\frac{1}{\log(1 + \alpha)}}\\
+      &= \left(\frac{\gamma_n}{\gamma_0}\right)^{\frac{\log(1 - P_{\text{esc}})}{\log(1 + \alpha)}}\\
+      &= \left(\frac{\gamma_n}{\gamma_0}\right)^{-s},
+\end{align*}
+where $s = \nicefrac{\log\left(\frac{1}{1 - P_{\text{esc}}}\right)}{\log(1 + \alpha)}$.
+This acceleration model results in an energy spectrum which follows the power-law distribution
+so ubiquitous in astroparticle physics. Fermi's model was able to successfully explain the experimental data recorded 
+by cosmic-ray researchers at the time.
+
+Another approach to the problem, which is perhaps a little more motivated by physics rather than statistics, can be build from the so-called \emph{diffusion-loss} equation. 
+In this explanation, the magnetic fields described by Fermi are due to turbulent plasmas giving rise to
+\enquote{random} movements and strong magnetic field gradients.
+Following the notation in~\cite[566]{longair} the diffusion equation is defined as 
+\begin{equation}
+  \label{eq:diffusion-loss}
+  \frac{\diff{N}(\gamma)}{\diff{t}} = D \nabla^2 N(\gamma) - \frac{\diff{}}{\diff{\gamma}}\bigl(\dot{\gamma} N(\gamma)\bigr) - \frac{N}{t_{\text{esc}}} + Q(\gamma),
+\end{equation}
+where $D$ is the diffusion coefficient, $Q(\gamma)$ is a particle source term and $t_{\text{esc}}$ is the typical escape time for a particle.
+Fermi's approach assumes a steady-state configuration without diffusion or source terms. So $Q(\gamma) = 0$ and  $D \nabla^2 N = 0$. 
+As seen above, the energy-gain term in the Fermi approach is postulated as $ \frac{\diff{\gamma}}{\diff{t}} = \alpha \gamma$.
+This results in the simplified equation
+\begin{align*}
+  -\frac{\diff{}}{\diff{\gamma}} \left( \alpha \gamma N(\gamma) \right)  &= \frac{N}{t_{\text{esc}}}\\
+  N(\gamma) + \gamma \frac{\diff{N(\gamma)}}{\diff{\gamma}} &= -\frac{N(\gamma)}{\alpha t_{\text{esc}}}\\
+  \frac{\diff{N(\gamma)}}{\diff{\gamma}} &= -\left( 1 +  \frac{1}{\alpha t_{\text{esc}}} \right) \frac{N(\gamma)}{\gamma}.  \numberthis \label{eq:fermi_loss}
+\end{align*}
+\Cref{eq:fermi_loss} has a solution of the form 
+\begin{equation}
+  \label{eq:fermi_spectrum}
+  N(\gamma) \propto  \gamma^{-\left( 1 +  \frac{1}{\alpha t_{\text{esc}}} \right)} \propto \gamma^{-s}.
+\end{equation}
+The diffusion equation results in a power-law spectrum just like the stochastic approach. 
+The scenario Fermi described does introduce some problems, a discussion of which can be found in~\cite[566]{longair}. 
+The energy gain per collision using the original Fermi model is proportional to the square of the magnetic 
+field velocity $V$ i.e: $\Delta E \approx \beta^2 = \left(\nicefrac{V}{c}\right)^2$.
+Hence, it is often called \emph{second-order} Fermi acceleration. This process alone is not efficient enough 
+to explain the abundance of cosmic rays. The \emph{first-order} Fermi mechanism was discovered in the 1970s 
+and takes place in the presence of strong shock waves~\cite[569]{longair}.
+% TODO checkout cosmic ray propagation through magnetic turbulence to understand additional cutoffs. 
+% dermer 12.5 and 12.2
+Supernova remnants (SNR) provide the perfect conditions for shock wave acceleration i.e. first order Fermi acceleration. 
+Exploding stars hurl massive amounts of matter into the space. The discarded shell expands rapidly into the
+surrounding interstellar medium. A detailed discussion on acceleration in planar shock waves can be found in~\cite[\S12.2.2]{gaisser}.
+Hence, supernova remnants like Cassiopeia A and the Crab Nebula are the perfect test objects to study models of cosmic-ray acceleration.
+
+
+% TODO first vs second order see longair 17.3 and 17.4. maybe not needed after all.
+% TODO spectral indices... also in longair 17.4 (page 572)
+
+%\section{Pion Decay}
+\section{Synchrotron Emission}
+\label{sec:synchro}
+A charged particle moving through a magnetic field radiates energy in form of light.
+The breeding grounds of cosmic rays inevitably produce photons which can be observed on Earth. 
+Hot gas and matter radiates thermal blackbody radiation. The largest part of the 
+observed SEDs is produced by synchrotron radiation. It dominates the electromagnetic energy output over a broad range of wavelengths.
+Suppose a single relativistic electron with Lorentz factor $\gamma$ moving in a magnetic field
+produces a synchrotron radiation spectrum $F(\nu)$. Then an electron population with distribution 
+$\nicefrac{\diff{N(\gamma)}}{\diff{\gamma}} \propto \gamma^{-s}$ leads to a radiated synchrotron spectrum of
+\begin{align}
+  \label{eq:single_el_synchrotron}
+  \frac{\diff{N(\nu)}}{\diff{\nu}} &\propto \int \nicefrac{\diff{N(\gamma)}}{\diff{\gamma}} F(\nu) \diff{\gamma} \\
+                                                &\propto \int \gamma^{-s} F(\nu) \diff{\gamma}.
+\end{align}
+The synchrotron spectrum of a single relativistic electron with Lorentz factor $\gamma$ moving in a magnetic field peaks 
+strongly at 
+\begin{equation}
+  \label{eq:peak_synchro}
+  \nu_s = \gamma^2 \nu_c = \gamma^2 \frac{B e}{2 \pi m_e}\; \text{\cite[284]{gaisser}.}
+\end{equation}
+If the power radiated per differential energy by a single electron is approximated by its peak frequency we get 
+\begin{equation*}
+  \frac{\diff{N(\nu})}{\diff{\nu}} \propto \int \gamma^{-s} \delta(\nu - \gamma^2 \nu_c) \diff{\gamma} \\
+\end{equation*}
+Substituting $x = \gamma^2 \nu_c$ and $\diff{\gamma} = 2 \gamma  \nu_c \diff{x} = 2 \left(\frac{x}{\nu_c}\right)^{1/2} \nu_c $ yields
+\begin{align*}
+  \frac{\diff{N(\nu)}}{\diff{\nu}} &\propto \int \gamma^{-s} \delta(\nu - x) \diff{x} \\
+                                                &\propto \int \left(\frac{x}{\nu_c}\right)^{\frac{-s}{2}} \delta(\nu - x) \frac{1}{2 \left(\frac{x}{\nu_c}\right)^{1/2}} \diff{x} \\
+                                                &\propto \int \left(\frac{x}{\nu_c}\right)^{\frac{-s - 1}{2}} \delta(\nu - x) \diff{x} \\
+                                                &\propto \left(\frac{\nu}{\nu_c}\right)^{-\frac{s + 1}{2}}. \numberthis \label{eq:synchrotron_spectrum}
+\end{align*}
+The synchrotron spectrum emitted by the electrons will follow the electrons' power-law shape with a modified spectral index. 
+The energy loss introduced to the original electron population due to synchrotron radiation changes the 
+injected power-law spectrum. Suppose a Fermi process injects a power-law electron distribution
+with spectral index $s$. 
+Above some fixed break energy $\gamma_{\text{break}}$  the synchrotron loss steepens the electrons spectrum to $\gamma^{-(s+1)}$. 
+The injected electron spectrum hence changes to 
+\begin{equation}
+  \label{eq:electron_break}
+  \frac{\diff{N(\gamma)}}{\diff{\gamma}} \propto \begin{cases}
+    \gamma^{-s} & \text{if $\gamma < \gamma_{\text{break}}$} \\ 
+    \gamma^{-(s+1)} & \text{else.}
+  \end{cases}
+\end{equation}
+This in turn changes the spectrum of the synchrotron emission as seen in \eqref{eq:synchrotron_spectrum}. 
+Many SEDs of active galactic nuclei and supernova remnants show a very distinct synchrotron \emph{bump}. Measuring the 
+synchrotron spectra gives direct evidence of the electron population in the source. The second major feature seen in many spectra 
+is a consequence of the inverse Compton effect.
+% \end{equation}
+% We can estimate the effect of the synchrotron cooling on the spectrum by inserting \eqref{eq:injected_electrons} into the diffusion-loss 
+% equation \eqref{eq:diffusion-loss}. Assuming no diffusion takes place, no additional sources of electrons exist, and the escape term 
+% is negligible, the diffusion equation simplifies to
+% \begin{equation}
+%   \frac{\diff{N}(\gamma)}{\diff{t}} = -\frac{\diff{}}{\diff{\gamma}} \left( \dot{\gamma} N(\gamma) \right).
+% \end{equation}
+% The energy loss rate of a single electron due to synchrotron radiation is $\dot{\gamma} \propto \gamma^2 B^2$~\cite[284]{gaisser}
+% which results in 
+% \begin{equation}
+%   \frac{\diff{N}(\gamma)}{\diff{t}} = -\frac{\diff{}}{\diff{\gamma}} \left( \dot{\gamma} N(\gamma) \right).
+% \end{equation}
+% todo check funk
+% pages 219 longair
+\section{Inverse Compton Emission}
+\label{sec:ic}
+Inverse Compton (IC) interaction is the driving mechanism for very-high-energy gamma rays detected from supernova remnants. 
+Cherenkov telescopes almost exclusively observe the inverse Compton emission of these sources. 
+The Compton effect describes the scattering of a photon with an electron. Given an electron at rest,
+the incident photon will change its direction and wavelength during the scattering process. It is named after 
+Arthur Compton, who was the first to publish a quantitative explanation of the effect in 1923. The Compton effect is of some
+historical importance since its has no satisfactory explanation in a pure wave-like description of light. 
+The wavelength shift of the scattered photon can only be explained with the particle nature of light.  
+In the inverse Compton effect, the electrons are no longer considered to be at rest. A fast-moving electron transfers its energy to 
+a photon during scattering. High-energy electron populations in SNRs can interact with any of the surrounding photon fields this way,
+be it background starlight, infrared emission from dust clouds, or the cosmic microwave background (CMB).
+The photons radiated via synchrotron emission can also seed the inverse Compton process. In sources like the Crab Nebula, this 
+so-called \emph{\ssclong} (SSC) interaction is the key component in the VHE gamma-ray emission measured 
+by Cherenkov telescopes.
+% When approximating the frequency distributions of all these photon fields can roughly using their peak emission frequency 
+% The blackbody radiation from thermal emission peaks at $\nu_{\text{wien}} \propto T$.
+% The synchrotron emission for a single electron peaks at $\nu_s = \gamma^2 \nu_c$ . 
+% The Compton process is defined by the Klein-Nishina cross section. It 
+Approximating the seed photon fields as monochromatic, the shape of the inverse Compton spectrum roughly follows by a broken power law
+as shown by~\cite{fouka_ic_shape, blumenthal_gould, lefa_kelner_shape} 
+\begin{equation}
+  \label{eq:ic_spectrum}
+  \frac{\diff{N(\nu)}}{\diff{\nu}} \propto \begin{cases}
+    \left(\frac{\nu}{\nu_c}\right)^{-\frac{s + 1}{2}} & \text{for $\nu h \ll m_e c$} \\ 
+    \left(\frac{\nu}{\nu_c}\right)^{-(s + 1)} & \text{else}.
+  \end{cases}
+\end{equation}
+Here $m_e c$ is the electron's rest energy. 
+The inverse Compton effect produces the second large \emph{bump} in the SEDs of many sources.
+Combining the shape of the synchrotron photon spectra with the IC photon spectra we can now draw the
+SED of a typical gamma-ray source like the Crab Nebula. 
+\Cref{fig:funk_sed} shows a drawing of an SED as it would be observed from a hypothetical source along with its main features and dependencies.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics{build/funk.pdf}
+  \caption[Schematic SED model]{ A sketch of a typical SED with \ssclong emission as observed in many supernova remnants. 
+  The SED was simulated using \naima~\cite{naima}. 
+  The underlying electron spectrum was assumed to be distributed according to a simple power law with index $p_1=2$ before
+  the electron population starts to cool and index $p_2=3$ after~\cite{kardashev}.
+  The cutoff energy at which the cooling sets in is fixed at \SI{E12}{\eV}. As shown in \eqref{eq:synchrotron_spectrum} the synchrotron spectrum
+  follows the electron spectrum with a modified index.
+  The right side of the figure shows the inverse Compton bump. The IC emission from the CMB photons 
+  and the synchrotron photons is drawn separately as dotted and dashed lines respectively. This figure was adapted from Stefan Funk's review article
+  \enquote{Ground- and Space-Based Gamma-Ray Astronomy}~\cite{funk_gamma}.
+  }
+  \label{fig:funk_sed}
+\end{figure}
+
+\section{Log-Parabolic Energy Distributions}
+\label{sec:log-par-he}
+The inverse Compton emission measured by Cherenkov telescopes often shows remarkable curvature. 
+Extra-galactic sources like Markarian 421 as well as SNRs within our own galaxy show a curved photon spectrum at high energies.
+The approximation made in \cref{sec:ic} describing the spectrum as a power law seems to be too crude.
+In the previous section I assumed an electron population that was produced by a \emph{Fermi-like}
+process resulting in a power-law distribution. Each \emph{collision} with a magnetic field resulted in an energy gain of 
+$\Delta \gamma = \alpha \gamma$. We can adapt the energy gain processes slightly to account for some randomness 
+during the process. 
+Following ideas from~\cite{acceleration_tramacere}, I consider a single charged particle in proximity to moving magnetic fields.
+We can express the energy of the particle using its Lorentz factor after each collision with the magnetic field  as
+\begin{align*}
+  \gamma_n & = \epsilon_n \gamma_{n-1} \\
+           & = \epsilon_n (\epsilon_{n-1} \gamma_{n-2})\\
+           & = \epsilon_n (\epsilon_{n-1} (\epsilon_{n-2} \gamma_{n-3})) \\ 
+           &\setbox0\hbox{=}\mathrel{\makebox[\wd0]{\hfil\vdots\hfil}} \\ %see https://tex.stackexchange.com/questions/7650/centering-vdots-in-a-system-of-many-equations
+           & = \gamma_0 \prod_{i=1}^n \epsilon_{i},
+\end{align*}
+where $\epsilon_i$ is the energy gain received by the particle in collision $i$ and $\gamma_i$ is its Lorentz factor.
+Suppose the particle starts with a low kinetic energy, we can set $\gamma_0 = 1$ and rearrange the equation a bit
+\begin{align*}
+  \gamma_n  & = \prod_{i=1}^n \epsilon_{i} \\
+            & = e^{\ln(\prod_{i=1}^n \epsilon_{i})} \\
+            & = e^{\sum_{i=1}^n \ln(\epsilon_{i})} \\
+            & = e^{\sum_{i=1}^n X_i},
+\end{align*}
+where we set $X_i = \ln(\epsilon_{i})$. The $X_i$ are assumed to be identically distributed,
+independent of each other and have finite variances.
+This may sound like a bold claim at first. However, the mechanisms taking place in each collision are 
+bound to the same physical processes and completely uncorrelated with each other.
+Hence, the random variables $X_i$ fulfill the conditions for applying the central limit theorem. It follows that for large $n$ the sum  
+$\chi = \sum_{i=1}^n \ln(\epsilon_{i})$ converges in distribution to a normal distribution $\chi \sim \mathcal{N}(\mu, \sigma)$ 
+with $\mu = n \mu(\ln(\epsilon_i))$ and $\sigma^2 = n \sigma^2(\ln(\epsilon_i))$.
+In consequence, the energy distribution of the particles $f(\gamma)$ will follow a log-normal distribution~\cite[312]{stats_degroot}
+\begin{equation*}
+  \ln\left(f(\gamma)\right) \sim \mathcal{N}(\mu, \sigma^2).
+\end{equation*}
+Transforming $\chi$ into a standard normal variable using $Z = \frac{\chi - \mu}{\sigma}$ we can write 
+\begin{equation*}
+  f(E) \sim e^{\mu + \sigma Z}.
+\end{equation*}
+ In literature the model often takes the form of an exponential function with three parameters $A$, $\alpha$ and $\beta$
+\begin{equation}
+  \label{eq:logpar}
+  N(E) = A \left( \frac{E}{E_0} \right)^{-\alpha -\beta \log_{10}\left(\frac{E}{E_0}\right)}.
+\end{equation}
+As shown in~\cite[\S5]{massaro_logpar_mrk} and~\cite{lefa_kelner_shape}, the  inverse Compton emission will 
+approximately follow the shape of the electron spectrum at high energies. 
+Hence, a log-parabolic electron distribution will lead to a log-parabolic gamma-ray emission. 
+\Cref{fig:sed_fit_he} shows a fit of \cref{eq:logpar} to observed fluxes from the Crab Nebula. 
+
+
+\begin{figure}[]
+  \centering
+  \input{build/sed_fit_he.pgf}
+  \caption[Fit to the high-energy Crab emission]{Simple least-squares fit of a log-parabolic model to observations of the Crab Nebula.
+  The best fitted values are \protect{\input{build/sed_fit_he.txt}}. 
+  Errors on the parameters are estimated from the diagonal of the covariance matrix resulting from the least squares fit. 
+  The error band in the plot has been estimated by sampling models from a gaussian with the same covariance matrix.
+  The band indicates the 5\th and 95\th percentile of all \num{10000} sampled models that are drawn from the gaussian.
+  For this source the coverage of flux measurements in the transition region between synchrotron and inverse compton emission 
+  is provided by the \fermi satellite. For many other sources, mostly active galactic nuclei, the transition region is shifted to lower energies.
+  }
+  \label{fig:sed_fit_he}
+\end{figure}
+

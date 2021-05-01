@@ -1,0 +1,1039 @@
+\chapter{Spectral Analysis of IACT Data}
+\label{ch:spectral}
+
+
+In the previous chapter I fitted a model to existing flux points published by various IACT experiments. 
+In this chapter I will describe how to estimate the flux of a gamma-ray point source using IACT data.
+
+Observational astrophysics is performed by measuring the energy output of an object in some form or another. IACT analysis is no different.
+The success of multi-wavelength observations of the sky are self-evident. The combination of images from 
+multiple wavelengths is key to unlocking some of the mysteries of modern astrophysics. 
+In the 1970s, in an effort to overcome the technical challenges involved when sharing images among operating systems, the FITS 
+file format was invented. The Flexible Image Transport system (FITS), first standardized in 1981~\cite{fits_1981},
+quickly became the image format of choice among astronomers.
+Since the 1990s, with support from NASA's  High Energy Astrophysics Science Archive Research Center (HEASARC), many additions to the FITS format were developed to 
+stimulate the interchange between experiments. The FITS format has become the de-facto standard for storing high-level results in astronomy in all wavelengths 
+,be it radio, infra-red, optical or X-Ray.
+% The most recent version of the FITS standard is version \num{4.0}~\cite{fits}. 
+The VHE gamma-ray community, the community of ground-based Cherenkov observatories, is a considerable exception. Their methodology 
+was inherited from particle physics.  For decades the standard software and file format in traditional particle physics has been the \rootcern project~\cite{rootcern}. 
+Storage and data analysis software for \hess, \magic, and \veritas is programmed within the confines of the \rootcern framework. Despite the common framework, 
+the internal file structures and softwares are proprietary and no sharing of code or data takes place among the experiments.
+The upcoming next-generation Cherenkov Telescope Array (CTA) will break the status quo. 
+The CTA project is currently under construction and will consist of at least 80 telescopes of 4 different types. 
+The new generation of astroparticle physicists in the CTA collaboration are trying to move 
+away from the closed-source \rootcern-based approach to modern open-source scientific solutions like the \gammapy~\cite{gammapy} project.
+Even though the internal file structures and programs are different,
+all Cherenkov telescopes produce their data in similar ways in terms of physics.
+So similar in fact, that a joint effort was started to find a common file format for storing and representing them in FITS format.
+The project was initiated by Christoph Deil in 2016 in a face-to-face meeting near Paris.
+Members from all IACT collaborations, including myself, discussed commonalities and differences between the data produced by the 
+different experiments. A description of a common file structure was drafted and presented at the Gamma 2016 conference~\cite{open_gamma_proceeding} in Heidelberg. 
+High-level datasets from the \magic, \hess, \veritas and \fact telescopes were made available to the public in FITS format. These datasets contain 
+observations of the Crab Nebula and corresponding instrument response functions (IRFs).
+Under the auspices of Cosimo Nigro and Christoph Deil,
+we used this data to publish a joint paper titled \enquote{Towards open and reproducible multi-instrument analysis in gamma-ray astronomy}~\cite{joint_crab}
+in the \emph{Astronomy \& Astrophysics} journal.
+In the paper we perform a multi-instrument likelihood fit for a log-parabolic spectral model on the Crab Nebula data from all participating telescopes.
+The joint analysis in our paper uses open source software with public data and allows anyone to recreate the results. 
+Users can execute the analysis by downloading all data and the relevant source code under a fixed digital object identifier (DOI) 
+\url{https://doi.org/10.5281/zenodo.2381863}.
+It is the first paper in the field of gamma-ray astronomy which provides this level of reproducibility.
+In this chapter I perform a similar spectral analysis on the data similar to the one we presented in the paper. The statistical model used in my analysis is 
+modified to contain nuisance parameters describing the irreducible background.
+The statistical model is described in \cref{sec:stats_model}. 
+\Cref{sec:bg_estimates} outlines how the background is estimated from measurements.
+Instead of minimizing the likelihood as we did in the paper, I sample the posterior distribution using Markov-Chain methods.
+\Cref{sec:mcmc} gives a short overview of the Monte-Carlo methods used to sample distributions.
+There are two different ways to perform flux estimation of astrophysical sources. The model-dependent  
+approach, which I will describe in~\cref{sec:spectral_fit}, depends on an analytical description of the sources energy dependent flux. 
+The model-independent approach, which is explained in~\ref{sec:unfolding}, is often called \emph{unfolding}.
+While both approaches use the same underlying statistical model and are solved with the same techniques, they differ 
+fundamentally in terms of semantics. Fitting spectral models is useful for validating or invalidating physical assumptions. 
+Unfolding is useful for creating model-independent flux points which can be used in conjunction with measurements and models 
+which use different assumptions. 
+The main difficulty, for both approaches, lies in building the instrument response function (IRF). 
+Motivations for building a common data format and details about the datasets are given in \cref{sec:open-data}. 
+Details about the exact shape and functionality of the IRFs are given in \cref{sec:irf}.
+% The energy migration function, point spread function, and acceptance probability are summarized in the IRF using matrices or tensors. 
+The pipeline that processes the raw telescope data into a high-level event lists usable for astrophysical analysis 
+will be the topic of~\cref{ch:cta_analysis}.
+For the remainder of this chapter, the datasets I refer to are the published observations 
+used in our joint paper~\cite{joint_crab}. 
+The loading of the event lists and instrument responses as well as the estimation of background counts is performed with code from the \gammapy project 
+if not mentioned otherwise. 
+
+\section{Event Data}
+\label{sec:open-data}
+Unlike traditional optical telescopes, the data recorded by IACTs is not of \emph{image-like} dimensions. 
+While an optical telescope exposes some region in the sky for a long period of time to create an image, IACTs record a set of distinct \emph{events}.
+In the community's parlance, one event refers to the recorded data of one unique air shower. For a single telescope this results in one image recorded per event,
+for an array of multiple telescopes more images get recorded. 
+The data in its raw form is not usable for astrophysical analysis. 
+The cameras used for Cherenkov telescopes are highly specialized devices sensitive to single photons. Precise calibrations have to be performed 
+and applied to the data in order to distinguish Cherenkov photons from background light or sensor artifacts. 
+As discussed before, even after preprocessing and reconstruction of the primary particles' energy and direction, most 
+of the observed air showers are induced by cosmic rays.
+These are rejected by machine-learning methods before the final event list is produced. The algorithms are trained on simulated data to differentiate between 
+gamma-ray and cosmic-ray air showers. 
+% These methods rely on simulated data to \enquote{learn} to differentiate between 
+Even then, much unwanted cosmic-ray background remains. 
+\Cref{ch:ml} will discuss these methods in detail.
+
+The common data structure we propose for IACT data is based on the FITS format. The \texttt{BINTABLE} extension
+to the FITS standard allows for storage of table-like data with associated meta data stored in a header. The common data format requires 
+just 5 columns to perform spectral analysis:
+the \textbf{ENERGY} column, which contains estimated energy of the primary particle; the \textbf{RA} and \textbf{DEC} columns containing the 
+reconstructed point of origin of the event on the sky in equatorial coordinates; the \textbf{TIME} column
+,which stores each event's time of recording, and a unique identifier called \textbf{EVENT\_ID}.
+Additional information, such as the pointing position of the telescope or the total observation time, is stored in the attached header~\cite{oga_docs}. 
+% start rambling
+% \textcolor{orange}{
+It is important to keep in mind that \emph{estimated energy} means different things for different instruments and analysis methods. 
+In the hypothetical situation that both \fact and \magic see an air shower induced by a gamma ray with \SI{1}{TeV} kinetic energy,
+the estimated energies of \fact and \magic can differ wildly. The energy migration matrices covered in the next section can only ever consider expected values
+of energy distributions. For a single air shower,  no hard statements can be made. 
+To make matters worse, for the reasons outlined in~\ref{sec:irf}, the instrument responses can only be built from simulations. 
+The response functions for observed data might look different. This uncertainty caused by using simulations can 
+introduce biases in the result if the simulation does not resemble reality accurately.
+While it is certainly possible to model some of this systematic uncertainty, it is prohibitively expensive
+in terms of computing and man power. 
+%stop rambling
+\Cref{tab:data_overview} gives an overview over the four datasets used to fit the Crab Nebula energy spectrum. 
+The number of events seen by the telescopes depends strongly on how the events were selected during the analysis. Even so, the small mirror size of \fact 
+clearly means that more observation time is required to gather a sufficient amount of data. 
+\begin{table}
+  \centering
+  % \rowcolors{1}{green}{pink}
+  \caption[Overview of the open data  from \magic, \hess, \veritas and \fact.]{The data used in the fit from \magic, \hess, \veritas and \fact. 
+  All the data was made public and can be downloaded as a Zenodo bundle~\cite{joint_crab} including exploratory \python notebooks to read the data. 
+  The altitude range shows the minimum and maximum pointing angle with respect to the local horizon.
+  %  The altitude angle has a large influence 
+  % on the instruments sensitivity. 
+  }
+  \label{tab:data_overview}
+  \begin{tabular}{l  c  S[table-format=1.6]c  c  c}
+  \textbf{Telescope} & \textbf{Year} & \textbf{Duration / \si{\hour}}  & \textbf{Number of Events} & \textbf{Altitude Range}  \\
+  \addlinespace[0.5em]
+    \input{build/iact_overview.txt}
+  \end{tabular}
+\end{table}
+
+
+
+% Telescopes working in optical, radio or X-Ray wavelengths use FITS 
+
+
+\section{Instrument Response Functions}
+\label{sec:irf}
+
+
+The telescope's probability to trigger an incoming air shower, a so-called \emph{event}, depends on environmental conditions like humidity, ambient temperature, 
+background light, cloud coverage and pointing direction. Even for fixed environmental conditions, the probability still depends 
+strongly on the primary particle's true energy and point of origin within the field of view.
+Not all gamma rays can be properly reconstructed by the telescope's analysis.
+This might be simply due to the fact that they are too dim or undistinguishable from sensor noise. Some events get miss-classified, i.e. 
+an air shower induced by a gamma ray is erroneously recognized as a hadron-induced shower. Events may also 
+fail to pass some predefined quality requirement.
+After accounting for the triggering probability and all analysis-related effects we are left with total acceptance probability $P_a(\etrue, \Theta, \Psi, \Phi)$.
+The angles $\Psi$ and $\Phi$ define the pointing direction of the telescope in horizontal coordinates. The angle $\Psi$ is the azimuth angle with respect to the north pole.
+At different azimuth angles the observed air showers are aligned differently with respect to the local geomagnetic field above the telescope site.
+$\Phi$ is the pointing altitude above the local horizon.
+Air showers detected at low altitude angles have to travel a much greater distance through the atmosphere than air showers coming from the 
+zenith directly above the telescope's location. Hence, both angles influence the telescope's acceptance probability.
+The angle $\Theta$ defines the offset angle between the center of the telescope's field of view and a potential gamma-ray source.
+The acceptance probability drops off rapidly towards the edge of the field of view (FoV). 
+Aberration effects in the telescope's optical system increase at larger distances from the center of the FoV. 
+More importantly, air showers originating near the edge of the FoV are less likely to be detected. Near the edge, only one-half of all air showers will 
+remain inside of the telescope's visible slice of atmosphere.
+Measuring the $P_a$ directly is impossible since no artificial source of gamma rays exists in the required energy range. 
+Simulations are the only way to gauge the instrument response to air showers.
+For each generated gamma ray, the simulation needs to propagate all
+constituents of the resulting air shower through the atmosphere.
+For each charged particle in the air shower, the Cherenkov photons must be generated and their trajectory through the atmosphere calculated.
+Simulated Cherenkov photons reaching the telescope are mapped onto the camera's sensor plane via ray tracing.
+All components that potentially interact with the photons must be taken into account. 
+The reflection on the mirrors, the shadowing by the telescope's frame and refraction of the light guides in front of the pixels
+are all important components that have to be simulated as close to reality as possible. 
+The resulting photon distribution on the camera's sensor is then used as input for the 
+simulation of the detector's electronics. The trigger logic, sensor effects, and electronic artifacts are simulated 
+up to the point where the telescope's data acquisition system writes all its data to a file.
+The \corsika~\cite{corsika} software is responsible for the air-shower physics part of the simulation. It has been under active development 
+for more than 20 years and is used for all major astroparticle experiments.
+The collaborations building Cherenkov telescopes or cosmic-ray detectors then use their own in-house detector simulation software
+to process the output of \corsika. 
+Each simulated air shower which triggers the telescope will be put through the telescope's analysis pipeline just like observed data. 
+During the analysis, noise removal, background suppression and event selection is performed.
+This includes the filtering of air showers which are likely of hadronic origin.
+The number of events remaining after the analysis is smaller than the number of triggered events and  much smaller than the amount of simulated showers
+\begin{equation}
+  N_{\text{Simulated}} > N_{\text{Triggered}} > N_{\text{Accepted}}.
+\end{equation}
+The number of accepted events in the result is then used to estimate the acceptance probability
+$P_a = \frac{N_{\text{Accepted}}}{N_{\text{Simulated}}}$.
+A Cherenkov telescope can only observe air showers whose primary particles' trajectory hits the ground around the telescope within a 
+maximum distance $R_{\mathrm{max}}$. As seen in~\cref{eq:opening_angle} the Cherenkov emission of an air shower is directed strongly along 
+the shower's trajectory. The photons hit the ground within an energy dependent radius of the shower's impact point on the ground.
+In order to detect an air shower, the telescope has to be situated within that radius. 
+This defines the maximum area of impact points $A = 2 \pi R_{\mathrm{max}}^2$ around the telescope in which air showers are still observable.
+The acceptance probability is multiplied by the area in which showers are scattered during simulation $A_{\mathrm{sim}}$ resulting 
+in the \emph{effective area} $A_\mathrm{eff} = P_a A_{\mathrm{sim}}$.
+The true, time-dependent, gamma-ray flux of a source, either simulated or real, $N(\etrue, t)$ is transformed into a distribution of accepted events by 
+\begin{equation}
+  \label{eq:f_E}
+  f(\etrue, \Theta) = \int_{\tobs} N(\etrue, t) P_a(\etrue, \Theta, \Psi(t), \Phi(t)) A_{\mathrm{sim}} \diff{t}.
+\end{equation} 
+The pointing angles are time dependent when the telescope tracks a source. 
+During the observation time $\tobs$ the Earth's rotation forces the pointing position to adjust. 
+The offset parameter $\Theta$ remains free so that any potentially extended source in the FoV can be observed.
+In practice, the explicit time dependence is removed by splitting the measurement into smaller distinct observation windows, so-called runs.
+The lengths of one run is chosen such that the pointing angles $\Psi, \Phi$ do not change significantly during the run.
+The effective area is calculated on a per-run basis.
+For spectral analysis several observations of the same source are aggregated which 
+implicitly averages the luminosity of the gamma-ray source over time
+\begin{equation}
+  \label{eq:f_E_discrete}
+  f(\etrue, \Theta) = \sum_{\mathrm{run}} N(\etrue)\, A_{\mathrm{eff}, \mathrm{run}}(\etrue, \Theta),
+\end{equation}
+where $N(\etrue)=\int_{\tobs}N(\etrue, t)$ is the sources flux integrated over time.
+Typical run durations lie anywhere between 5 and 20 minutes. 
+From a technical standpoint this brings an additional advantage. It reduces load on the data acquisition and computing infrastructure as it avoids writing huge 
+files for long observation campaigns. 
+
+The gamma ray's true kinetic energy $\etrue$ can only be estimated by the amount of Cherenkov light emitted by the air shower. 
+Much care is taken to use all available information in the recorded Cherenkov images to estimate the primary particle's energy.
+As described in~\cref{ch:ml}, machine-learning methods are employed to get the best estimator possible. 
+Nevertheless, no energy estimation is perfect. All models are inherently flawed.
+Due to the stochastic nature of the air shower, the correspondence between true and estimated energy can never be completely accurate.
+The relation between the true energy $\etrue$ and the estimated energy $\eest$
+is given by the dispersion function $p_j(\eest, \etrue, \Theta, \Psi, \Phi)$.
+As with the effective area, the explicit dependency on time and the pointing angles can be dropped when splitting the observation into shorter runs. 
+The dispersion function transforms distributions in true energy $f(\etrue)$ into distributions of estimated energy $g(\eest)$.
+% It is important to understand that $f$ is the energy distribution of accepted events as given by \cref{eq:f_E}.
+The function $f$  has compact support since $P_a$ has a minimum and maximum energy outside of which no events can be accepted. 
+This means that $f$ can be normalized and interpreted in a stochastic context. In this sense $f$ is the probability density function of the random variable $\etrue$
+\begin{equation*}
+  \operatorname{Pr}(\etrue \in \Delta \etrue) = \int_{\Delta \etrue} f(E) \diff{E}.
+\end{equation*}
+In the same manner, $g$ can be defined as the probability density function of the random variable $\eest$.
+% Both $g$ and $f$ are known from simulations. When observing astrophysical sources $g$ is measured and $f$ is unknown.
+Each simulated air shower has a true and an estimated energy. Provided sufficient simulations
+are available, the distributions $g$, $f$ and the joint distribution $p_j(\etrue, \eest)$ can be estimated either by kernel density estimation 
+or straightforward histogramming of the data.
+Marginalizing $p_j$ with respect to $\etrue$ results in a function which connects the true event energy with its estimated energy
+\begin{equation}
+  \label{eq:dispersion_prob}
+  g(\eest, \Theta) = \int_{\etrue} p_j(\eest,  E; \Theta) \diff{E} =  \int_{0}^{\infty} p_D(\eest \mid E; \Theta) f(E) \diff{E}.
+\end{equation}
+The dispersion function acts as the conditional distribution of the estimated energy given the true energy $p_D(\eest \mid \etrue)$.
+This relation also holds if $f$ is not normalized to be a proper density function, but instead is a function relating true energy to 
+actual event counts or rates. 
+% muss das begrunded werden?
+Now all necessary ingredients are available to define the measurement process of an IACT.
+By substituting $f$ with the expression from \cref{eq:f_E_discrete}, the distribution of event counts for a single run can now be written as
+\begin{align}
+  \label{eq:iact_measure_continuous}
+G(\eest, \Theta) &=  B(\eest,  \Theta) + \int_{\etrue} p_D(\eest \mid \etrue; \Theta) N(\etrue)A_{\mathrm{eff}}(\etrue, \Theta) \diff{\etrue},
+\end{align}
+where $B(\eest, \Theta)$ is the remaining background after all analysis steps have been performed. 
+This background consists of showers started by cosmic electrons or hadrons which could not be discriminated from the actual gamma-ray signal by the analysis.
+The background can be modeled in the same way as the signal by extensive simulations and calculation of acceptance probabilities and 
+migration functions. However, the simulation of hadronic air showers is quite expensive in terms of computing time. 
+As detailed in \cref{sec:bg_estimates} the background $B(\eest, \Theta, \Psi, \Phi)$ can be measured directly while observing gamma-ray sources.
+
+In practice, the effective area and the migration function are calculated in some discretized form. 
+The effective area for a single observation is calculated by creating a two-dimensional histogram of accepted events 
+in bins of true energy $\etrue$ and offset angle $\Theta$. 
+If $S_a$ is the set of accepted events and $S$ the set of simulated events, then we get the effective area matrix $\mathbf{A}$
+by dividing the number of accepted events in bin $\Delta \etrue$ by the total number of simulated events in that bin
+\begin{equation}
+  A_{\Delta \etrue} = A_{\mathrm{sim}} \frac{\sum_{{\etrue \in S_a}} \mathbf{1}_{\Delta \etrue}(\etrue) }{\sum_{{\etrue \in S}} \mathbf{1}_{\Delta E_T}(\etrue)},
+\end{equation}
+where the indicator function $\mathbf{1}_{R}$ is defined as
+\begin{equation}
+\mathbf{1}_{R}(x):=\begin{cases}
+  1 & {\text{if }} x \in R, \\
+  0 & {\text{else. }}
+\end{cases}
+\end{equation}
+This admittedly unwieldy notation describes the division of two histograms, which is a relatively simple operation in many programming languages.
+An astrophysical source model $N(E)$ can be discretized into a vector containing counts in true energy $c$ where each entry 
+in the vector is calculated by integrating over the energy range in the bin 
+\begin{equation*}
+  c_{\Delta \etrue} = \int_{\Delta \etrue} N(E) \diff{E}.
+\end{equation*}
+The count vector of accepted events can then be calculated in analogy to \cref{eq:f_E}
+\begin{equation*}
+  f_{\Delta \etrue} = c_{\Delta \etrue}  A_{\Delta \etrue} \, \tobs.
+\end{equation*}
+The subscripts can be dropped when expressing $f$, $c$, and $A$ as vectors containing the values for all energy bins. The equation can then be written in terms of vectorized operations as 
+\begin{equation*}
+  f = c \odot A \, \tobs,
+\end{equation*}
+where $\odot$ is the element-wise multiplication of two vectors, the Hadamard product.
+
+The energy dispersion function for one observation is discretized in a similar way.
+A two-dimensional histogram is build to estimate the joint probability density of true and estimated energy
+\begin{equation*}
+  \mathbf{p_j}_{\Delta \eest \Delta \etrue } =\; \sum_{\mathclap{(\etrue, \eest) \in S_a}} \; \mathbf{1}_{\Delta \etrue}(\etrue) \mathbf{1}_{\Delta \eest}(\eest).
+\end{equation*}
+Per definition of conditional probabilities, $p_D(\eest \mid \etrue)$ can be calculated from the joint distribution by dividing 
+it by the probability density of $\etrue$
+\begin{equation*}
+  p_{\Delta \etrue} = \sum_{\mathclap{\etrue \in S_a}} \mathbf{1}_{\Delta \etrue}(\etrue).
+\end{equation*}
+resulting in the final dispersion matrix
+\begin{equation*}
+  \edisp_{ \Delta \eest \Delta \etrue} = \frac{\mathbf{p_j}_{\Delta \etrue \Delta \eest}}{p_{\Delta \etrue}}.
+\end{equation*}
+In analogy to \cref{eq:dispersion_prob} the relation between estimated and true energy can then be expressed using 
+matrix multiplication of $\edisp$ with count vectors $g$ and $f$
+\begin{equation*}
+  g = \edisp \, f.
+\end{equation*}
+Now the measurement process can be written down in discretized form equivalent to \cref{eq:iact_measure_continuous}
+\begin{equation}
+  \label{eq:iact_measurement_discrete}
+  g = B + \edisp \, (c \odot A) \, \tobs.
+\end{equation}
+
+The instrument response functions, $\edisp$ and $A$ are stored for each offset bin $\Theta$. 
+The data format introduced in the previous section~\ref{ch:spectral} stores the energy dispersion information
+in a modified form.
+The energy migration \mbox{$\mu=\frac{\eest}{\etrue}$} is calculated for each simulated event an then distributed into 
+bins of with $\Delta\mu$
+\begin{equation}
+  \label{eq:migration_def}
+  \mathbf{p_M}_{\Delta \mu \Delta \etrue} = \frac{\sum_{(\mu, \etrue) \in S_a} \mathbf{1}_{\Delta\mu}(\mu)  \mathbf{1}_{\Delta \etrue}(\etrue)}{p_{\Delta \etrue}}.
+\end{equation}
+Speaking in terms of histograms: The IRF contains a two-dimensional histogram in bins of $\Delta\mu$ and $\Delta \etrue$.
+The right-hand side of \cref{fig:fact_irf} shows FACT's energy migration matrix in the offset range $\Delta\theta = \left[\SI{0}{\degree}, \SI{1.125}{\degree} \right)$.
+The left side of \cref{fig:fact_irf} shows a plot of the effective area of the FACT telescope. 
+The IRFs are stored according to the open gamma-ray astronomy data description (\oga) which I mentioned in the previous section.
+The \oga defines column names, units, dimensions and header keywords necessary to store the IRFs into FITS files.
+The IRFs are stored as multidimensional arrays in binary tables according to the \texttt{BINTABLE} extension of the FITS standard~\cite[S.7.3]{fits}
+and appendix B of~\cite{fits_bintable}. More details are given in the official \oga documentation~\cite{oga_docs}. 
+
+
+% The \gammapy project~\cite{gammapy} provides functions to read \oga data into the \python.
+\begin{figure}[]
+  \centering
+  \includegraphics{build/fact_irf.pdf}
+  \caption[Instrument response function for \hess and \fact]{The figures in the left column show the effective area of the \fact and \hess telescopes.
+  %  Simulated for dark night conditions and high altitude pointing directions. 
+  The effective area is split into offset bins between \SI{0}{\degree} and radius of the field of view.
+  It is largest near the center of the field of view, where images of the 
+  air showers are still fully contained within the telescope's camera. 
+  The effective area for \fact takes into account only those events which have been
+  reconstructed to be originating within a radius of \protect{\input{build/fact_irf_selection_radius.txt}}
+  form the true, simulated, source position.
+  The effective area for \hess applies no directional cut.
+  The right-hand figures show energy migration. 
+  \fact's migration is valid between \SI{0}{\degree} and \SI{1.125}{\degree} and \hess'  between  \SI{0}{\degree} and \SI{0.5}{\degree}.
+  Each column in the migration matrix sums to unity as defined in~\eqref{eq:migration_def}.
+  At the time of producing the \fact IRFs, not much simulated gamma-ray data was available and so
+  the matrices for \hess use a much finer binning in both energy and offset.
+  }
+  \label{fig:fact_irf}
+\end{figure}
+
+
+\section{Background Estimation}
+\label{sec:bg_estimates}
+The first step performed when measuring the energy spectrum of a point source is to create a \emph{count spectrum}.
+In most cases the positions of the point sources are known from measurements in other wavelengths, most often radio and optical.
+As described before, an IACT produces a list of reconstructed energies and directions. 
+All events within a predefined radius of the point source's position are selected and distributed into bins of estimated energy $E_\text{est}$ building the count spectrum.
+This count spectrum is called $\Non$ as it counts the number of events in the signal region.
+Despite best efforts to reduce the background in the measurements, IACT data is always contaminated by background events, either due to miss-classified events 
+that were induced by hadrons or due to air showers started by electrons which are notoriously hard to discriminate. 
+Hence, the count spectrum inevitably contains unwanted background counts
+\begin{equation*}
+  \Non =  N_{\text{signal}} + N_{\text{background}}.
+\end{equation*}
+
+One way to estimate the background is to perform \emph{off measurements}.
+For these measurements, a region in the sky is selected with similar conditions to that containing the source. This might be a region with similar amounts 
+of background starlight or similar atmospheric conditions. The large disadvantage of this method is the large amount of wasted observation time.
+For each signal observation, some time has to be allotted for off measurements. The \whipple telescope operated in this manner
+until the \hegra collaboration established the \emph{wobble} observation mode.
+The idea is to point the Cherenkov telescope not directly at the source, but with a small offset.
+During observation of point-sources, large fractions of the telescope's field of view are free from gamma-ray sources.
+This fact can be used to estimate the background contamination of a count spectrum.
+Background events are sampled from this \emph{off region} using the same criteria that were applied when selecting the data in the signal region.
+This will result in a measured count spectrum for the off-region 
+\begin{equation*}
+  \talpha \Noff \approx N_{\mathrm{background}},
+\end{equation*}
+where $\talpha$ is the fraction of area covered by the on and off-region and their respective exposure times.  
+Choosing off-regions is not trivial. The signal, or \emph{on}, region position is fixed due to the location of the source. 
+The radius of the region depends on the angular resolution of the directional reconstruction.
+The off-region needs to be large enough to get enough statistics and at the same time have a similar instrument response
+as the on-region. As visible in figure \ref{fig:fact_irf}, the instrument response function varies strongly within the field of view. 
+The selection process needs to take the inhomogeneous shape of the IRF into account.
+In the simple case of radially symmetric acceptance probability, which is roughly the case for many observations, one can select regions 
+with a similar offset $\theta$ as the on-region.
+This method is  called \emph{reflected regions} and is just one of many ways to estimate the background. A comparison of methods can be found in~\cite{iact_bkg}.
+\Cref{fig:wobble} shows how the reflected regions are selected for wobble observations. 
+Once the off-regions have been selected, the background contamination of the signal's count spectrum can be estimated and we are left with $\Non$ and $\Noff$.
+Now we can build a statistical model to estimate the energy spectrum of the observed source.
+
+\begin{figure}
+  \centering
+  \includegraphics{build/wobble_mode.pdf}
+  \caption[Depiction of wobble mod observations.]{A typical observation in wobble mode. In this hypothetical observation, the supernova remnant in the center of the image is the object of interest.
+  Two pointing positions are marked by white pluses. The small white circles indicate the off-regions. They are positioned on the edge of a circle around their respective pointing 
+  position. This way the background can be measured in the same field-of-view offset $\Theta$ as the gamma-ray source. Regions in the sky which contain other gamma-ray sources 
+  are excluded from the choice of off-regions.}
+  \label{fig:wobble}
+\end{figure}
+
+
+\section{Statistical Modeling}
+\label{sec:stats_model}
+
+The count spectra measured for both $\Non$ and $\Noff$ can be modeled by Poisson distributions.
+Each bin in estimated energy, i.e. each entry in $\Non$ or $\Noff$, is the result of a counting process. Each value 
+in $\Noff$ is the number of accepted events in the off-region within a fixed range of estimated energies $\Delta E_\text{est}$.
+Hence, each entry is distributed as 
+\begin{equation*}
+  P_{\mathrm{off}, i} \sim \operatorname{{Poisson}}(\mu_{b, i}).
+\end{equation*}
+The Poisson distribution models the number of independent events in a fixed space or time range. Its probability mass function 
+is defined as 
+\begin{equation}
+  \label{eq:poisson}
+  P_{\mathrm{Poisson}}(k) = \frac{\mu^k e^{-\mu}}{k!},
+\end{equation} 
+where $k$ is the number of events and $\mu$ is the mean of the Poisson distribution and its only parameter~\cite[287]{stats_degroot}.
+The counts in the on-region 
+\begin{equation*}
+  \Non =  N_{\mathrm{signal}} + N_{\mathrm{background}} = N_{\mathrm{signal}} + \talpha \Noff
+\end{equation*}
+are the result of two independent poisson processes.
+The mean of the counts in the on-region is the sum of the mean signal count $\mu_{s}$ and the mean background count $\talpha \mu_b$.
+Consequently, the counts in the on-region are distributed as 
+\begin{equation*}
+  P_{\mathrm{on}, i} \sim \operatorname{{Poisson}}\left(\mu_{s, i} + \talpha \mu_{b, i}\right).
+\end{equation*}
+We are interested in finding the mean of the signal counts $\mu_s$ from the observed data vectors $\Non$ and $\Noff$. 
+The likelihood of the observed data given the parameter vectors $\mu_s, \mu_b$ can be expressed as the joint distribution of the background and signal.
+Since these processes are independent of each other, the joint distribution is simply the product of the two likelihoods
+\begin{equation}
+  \label{eq:full_ll}
+  \operatorname{\mathcal{L}}\left( \Non, \Noff, \talpha \mid \mu_s, \mu_b \right) =  \prod_i P_{\mathrm{on}, i}\left(N_{\mathrm{on}, i} \mid  \mu_{s, i} + \talpha \mu_{b, i} \right) \cdot P_{\mathrm{off}, i}\left(N_{\mathrm{off}, i} \mid \mu_{b, i} \right).
+\end{equation}
+The number of free parameters in $\mathcal{L}$ depends on the number of energy bins in the count spectra 
+\begin{equation*}
+  n_{\mathrm{params}} = \operatorname{dim}(\mu_s) +  \operatorname{dim}(\mu_b) = \operatorname{dim}(\Non) +  \operatorname{dim}(\Noff).
+\end{equation*}
+We are only interested in finding the parameters which best describe the data under the given likelihood. Hence, the absolute value of the likelihood is of no importance.
+It is often easier to work in the equivalent formulation of the problem by applying the logarithm and dropping all terms which are constant with respect to the parameters
+\begin{align*}
+  \label{eq:full_log_ll}
+  \log(\mathcal{L}) &= \log\left( \prod_i  \frac{\left(\mu_{s, i} + \talpha \mu_{b, i} \right)^{N_{\mathrm{on}, i}} e^{-\left(\mu_{s, i} + \talpha \mu_{b, i} \right)}}{N_{\mathrm{on}, i}!} \cdot \frac{\mu_{b, i}^{N_{\mathrm{off}, i}}e^{-\mu_{b, i}}}{N_{\mathrm{off}, i}!} \right) \\
+  &= \sum_i N_{\mathrm{off}, i} \log(\mu_{b, i}) + N_{\mathrm{on}, i} \log(\mu_{s, i} + \talpha \mu_{b, i}) - (\talpha + 1) \mu_{b, i} - \mu_{s, i}. \numberthis
+\end{align*}
+
+The $\mu_s$ can be calculated by assuming a spectral model and calculating the gamma-ray flux of true energy $N(\etrue)$ and feeding the result through the detector's response function.
+This essentially reduces the number of free parameters in the likelihood to the number of parameters in the spectral model.
+\Cref{sec:spectral_fit} will describe this process in detail. Alternatively, the count spectrum can be fitted directly by 
+applying the energy migration matrix to a count vector as outlined in the section about unfolding~\ref{sec:unfolding}.
+Often no such instrument responses can be supplied for the background counts as it would require
+expensive simulations of hadronic interactions in the atmosphere for different observation conditions.
+In many use cases, the likelihood parameters for the background counts $\mu_b$ are of no particular interest in terms of physics. The value of $\mu_b$ carries no 
+information about the actual gamma-ray source that is being observed. Hence, the $\mu_b$ can be considered as a nuisance parameter to this statistical model. 
+There are three ways to deal with this.
+
+First, interpret the background measurements as some form of God-given \emph{truth} and discard any uncertainty about it.
+The likelihood in this case only consists of a single Poisson term
+\begin{equation*}
+  \operatorname{\mathcal{L}}\left( \Non, \Noff, \talpha \mid \mu_s, \right) =  \prod_i P_{\mathrm{on}, i}\left(N_{\mathrm{on}, i} \mid  \mu_{s, i} + \talpha N_{\mathrm{off}, i} \right).
+\end{equation*}
+Second, disregard the $\mu_b$ by building the profiled, or concentrated, likelihood and expressing the $\mu_b$  as a function of the other parameters.
+The profiled likelihood only considers the subspace of the likelihood where $\frac{\partial \log(\mathcal{L})}{\partial \mu_b} = 0$.
+Intuitively speaking, the profiling selects only the \emph{ridge} in the likelihood landscape in which the nuisance parameters maximize the likelihood~\cite[188]{profile_ll}.
+Applying the partial derivative with respect to $\mu_b$ and setting it to zero yields 
+\begin{equation}
+  \label{eq:ll_profile}
+  \frac{\partial \log(\mathcal{L})}{\partial \mu_b} =  \frac{\Non}{\mu_b} + \frac{\Non \talpha} {\mu_s + \talpha \mu_b} - \talpha - 1 = 0.
+\end{equation}
+This equation can be solved for $\mu_b$
+resulting in an expression which depends on $\Non, \talpha, \mu_s$ and $\Noff$
+\begin{equation*}
+  \mu_b =\frac{\Noff\talpha + \Non\talpha - \talpha\mu_s - \mu_s - \sqrt{K}}{2\talpha(\talpha + 1)},
+\end{equation*}
+where
+\begin{equation*}
+  \medmuskip=1mu
+  \thinmuskip=2mu
+  \thickmuskip=2mu  
+  K = \talpha^2 (\Noff^2 +  2 \Noff (\Non + \mu_s) + \Non^2 - 2 \Non \mu_s + \mu_s^2) + 2 \talpha \mu_s ((\Noff - \Non) + \mu_s) + \mu_s^2.
+\end{equation*}
+This expression can be substituted into \eqref{eq:full_log_ll} resulting in the profile likelihood which has no dependence on $\mu_b$ anymore.
+This profiled likelihood is known as \emph{WSTAT} among X-ray astronomers~\cite{sherpa} and some \hess members. It is a common choice 
+for fitting spectral models to IACT data. Literature about it is sparse, however.  
+Johannes King's dissertation gives an exhaustive review of its properties and potential biases~\cite{king}.
+
+The third way to deal with the $\mu_b$, is to allow them to remain free during likelihood maximization. While this increases the number of parameters in the fit,
+it properly takes any statistical uncertainty in the background measurement into account. In the following sections I will use the full likelihood as it is 
+given in~\eqref{eq:full_ll} including all nuisance parameters. Likelihoods like these are very common in high-energy physics. Often they 
+are maximized directly using iterative numerical optimization methods. Errors on the resulting parameters are then estimated by building
+frequentist confidence intervals using likelihood-ratio tests. 
+For high-dimensional problems, these methods quickly reach their limitations in terms of computing time and robustness.  
+Especially when dealing with many nuisance parameters, the Bayesian approach can be easier to use and interpret. 
+In section~\ref{sec:spectral_fit} I use Markov-Chain Monte Carlo (MCMC) sampling on the full posterior distributions including all nuisance parameters from the background to fit a spectral model.
+Some basics about MCMC are given in the next section.
+
+
+\section{Posterior Sampling using Markov Chain Monte Carlo}
+\label{sec:mcmc}
+There is a plethora of specialized algorithms to sample random variates from common univariate distributions. 
+The Ziggurat algorithm~\cite{zigurat}, for example, is one of these specialized methods
+for sampling numbers from a Gaussian distribution.  
+% Markov Chain Monte Carlo (MCMC) methods can be used to sample arbitrary multivariate probability distributions. 
+Typical likelihoods and their posterior distributions, like the ones build in the previous section, cannot be sampled directly as they 
+do not resemble any common probability distribution and are highly problem-specific. 
+Additionally, these likelihoods are often expensive to compute, which makes simple rejection sampling highly problematic in terms of 
+computing cost. The likelihood computation sometimes includes the entire detector simulation or numerical integration routines 
+over the instrument response functions. The next section~\ref{sec:spectral_fit} will show an example of that. 
+Markov Chain Monte Carlo (MCMC) methods can be used to sample arbitrary multivariate probability distributions.
+In this case we want to create samples from the posterior distribution defined by our likelihood and our prior assumptions on its parameters.
+The posterior distribution is build from the likelihood using Bayes' theorem  
+\begin{equation*}
+  p(\mu \mid \mathbf{x}) = \frac{\pi(\mu) \mathcal{L}(\mathbf{x}\mid \mu)}{g(\mathbf{x})}
+\end{equation*}
+where $\mu$ is the parameter vector, $\mathbf{x}$ is the data vector, $\mathcal{L}$ is the likelihood, and $\pi(\mu)$ is the prior distribution of the parameters.
+The normalization $g$ is often omitted from the equation. Its calculation $g(\mathbf{x}) = \int \pi(\mu) \mathcal{L}(\mathbf{x}\mid \mu) \diff{\mu}$ is expensive when 
+$\mu$ has many dimensions and, maybe more importantly, the shape of the posterior does not depend on the normalization. 
+
+A simple form of a Monte Carlo method to tackle this problem is the method of \textbf{rejection sampling}. 
+Rejection sampling makes use of a \emph{proposal density} $Q$, which is \emph{simpler} than $p(\mu)$ in the sense that we can directly 
+draw samples from it. Following the definition in~\cite{mackay_inference}, we assume for some constant $c$ 
+\begin{equation*}
+  c Q(\mu) > p(\mu)\quad \forall \mu.
+\end{equation*}
+We draw two random numbers. First, $\mu'$ is sampled from $Q$ and then a uniformly distributed number $u \in [0, cQ(\mu')]$ is chosen.
+Add $\mu'$ to the set of samples if $u \leq p(\mu')$ and reject it otherwise. 
+% Intuitively, we select points below the curve of the proposal density $Q(\mu)$ and only keep those which are below $p(\mu)$. 
+The larger the target density $p(\mu)$ with respect to $\mu$, the more samples get accepted. If $Q$ and $p$ are of similar shape the process is 
+relatively efficient. If not, less samples get accepted and more time is spent on computing rejected samples. This simple approach
+gets problematic in high dimensions. Finding a reasonable proposal density $Q$ might prove to be impossible without choosing large 
+values of $c$. 
+
+The \textbf{Metropolis-Hastings}~\cite{metropolis, hastings} method is a Markov Chain Monte Carlo method which
+alleviates some of the problems mentioned above. The samples generated by Markov Chain methods 
+are generally not independent of each other. 
+As the name suggests, the samples are building a connected chain. 
+Now the proposal density $Q\left(\mu; \mu(t)\right)$ depends on the current state $t$ of the chain $\mu(0), \mu(1), \ldots, \mu(t)$.
+In this case the shape of $Q$ is more or less irrelevant to the problem. As~\cite[365]{mackay_inference} suggests, $Q$ might be 
+standard normal distribution centered on the current position $\mu(t)$.  Again, we generate a proposal $\mu'$ from $Q$ and either accept or reject it based on a probability.
+The probability to accept $\mu'$ as the new $\mu(t+1)$ for the Metropolis-Hastings algorithm is 
+\begin{equation}
+  \label{eq:metropolis_step}
+  p_{\text{accept}} = \min\left(1, \frac{p(\mu')}{p(\mu(t))} \frac{Q\left(\mu(t); \mu' \right)}{Q\left(\mu'; \mu(t)\right)} \right)\quad\text{\cite[366]{mackay_inference, emcee}}.
+\end{equation}
+If a new sample gets accepted, it will be added to the chain. If not, the old state is used again.
+In this case the $\mu(t + 1) = \mu(t)$ and the chain contains the same sample twice. 
+It can be shown that for $t \rightarrow \infty$, the chain $\mu(t)$ converges in distribution
+to $k p(\mu)$, where $k$ is an arbitrary constant~\cite[S.21]{markov_mixing_levin}.
+Determining the speed of convergence of a MCMC chain is difficult. 
+Even making a reliable statements about wether a chain has converged is not an easy 
+task. In practice the number of required samples in a chain is estimated using its autocorrelation length~\cite[S.3]{emcee}. 
+A modified variant of a Metropolis-Hastings algorithm was used in chapter~\ref{ch:crab-sed} to fit the SED model of the Crab Nebula to 
+flux points. This MCMC algorithm uses an ensemble of samplers to generate proposals in parallel. It is implemented in the open-source 
+\emcee project~\cite{emcee}. 
+The algorithm implemented in \emcee is very robust for many use cases and easily executed in parallel.
+If the evaluation of the model $p(\mu)$ is expensive or the acceptance fraction is too low, 
+building a long enough chain of samples might still take too long. The proposal distribution $Q$ essentially
+\emph{guesses} the direction in which the chain should move.
+We can use information about the shape of $p$ to avoid  the \emph{random walk} behavior of the chain.
+
+\textbf{Hamilton Monte Carlo} methods use the gradient of the (log) posterior with respect to 
+$\mu$ to generate proposals. This method is inspired by the physics of hamiltonian dynamics.
+In addition to the parameter vector $x \coloneqq \mu$ we sample a momentum
+vector $m$. We interpret the target distribution as a physical system with a
+Hamiltonian for the position variable $x$ and the momentum variable $m$
+\begin{equation}
+  H(x, m) =  E(x) + K(m),
+\end{equation}
+where $E$ is the posterior distribution of interest, the \enquote{potential energy} in terms of Hamilton dynamics,
+and $K \propto m^T m $ models the \enquote{kinetic energy} of an object bound to the surface of $p(x)$.
+We sample the \emph{canonical distribution} of system states
+\begin{equation}
+  \label{eq:canonical}
+  P(x, m) \propto e^{-H(x, m)} = e^{-E(x)}e^{-K(m)}.
+\end{equation}
+Any target distribution $p(x)$ can be expressed as a canonical distribution over energies by setting $E(x) = -\log(p(x))$.
+The MCMC chain now consists of two variables per time step.
+The momentum variable $m$ is of no interest to the inference made on the model. It is simply a tool to 
+apply Hamilton dynamics to this system. Since $P(x, m)$ can be separated into marginalized distributions, the $m_i$ in the chain 
+can simply be discarded once calculation is complete. 
+Two proposals are generated per time step to create the next sample $\left(x(t+1), m(t+1)\right)$ in the chain.
+A momentum $m_s$ is proposed from a standard normal distribution. A path of length $L$ 
+starting from $(x_t, m_s)$ is followed according to the constrains set by Hamiltonian dynamics 
+\begin{align*}
+    \label{eq:hamiltonian_dynamics}
+    \dot{x} &= m \\
+    \dot{m} &= -\frac{\partial E(x)}{\partial x}. \numberthis
+\end{align*}
+This can be done using any solver which preserves the volume of the parameter space.
+The position and momentum found at the end of the path is the new proposal $(x', m')$.
+Equivalent to the Metropolis step shown in equation~\ref{eq:metropolis_step}, this proposal gets accepted with probability
+\begin{equation}
+  p_{\text{accept}} = \min\left(1, \frac{P\left(x', m'\right)}{P\left(x(t), m_s\right)}\right) = \min\left(1, e^{-H\left(x', m'\right) + H\left(x(t), m_s\right)}\right)\quad \text{\cite[388]{mackay_inference, nuts}}.
+\end{equation}
+In a physical interpretation this implies that samples whose total energy $H$ is smaller than that of the the previous sample will always get accepted.
+
+In the following section I use the \pymc~\cite{pymc} project to sample the full model as specified in equation~\ref{eq:full_ll} using a variant of the Hamilton MCMC method.
+Explicit knowledge about the gradient of the likelihood is still needed. This includes the forward propagation 
+of an astrophysical flux model through the detector's instrument response function as discussed in the next section. 
+
+\section{Fitting Spectral Models}
+\label{sec:spectral_fit}
+
+\pymc provides a convenient high-level user interface to create statistical models by combining and nesting elementary distributions. 
+The stochastic model is transformed into a computational graph by the \theano~\cite{theano} backend.
+The graph connects all input variables, the spectral parameters in this case, to the outputs, the value of the posterior distribution. 
+Like many of its competitors, e.g. \pytorch~\cite{torch} and \tensorflow~\cite{tensorflow}, to name just two, \theano optimizes runtime 
+by pruning paths in its computational graph.
+Once the graph is optimized, \theano creates \cpp code for execution on the CPU or \cuda~\cite{cuda} code for 
+execution on the GPU. 
+The resulting chain of operations is then automatically differentiated using the backpropagation algorithm~\cite{backprop,ad_survey}. 
+This way \pymc can use the full gradient of the posterior with respect to the spectral parameters to run Hamilton Monte Carlo algorithms.
+\pymc~\cite{pymc} uses the NUTS~\cite{nuts} algorithm to solve equation~\ref{eq:hamiltonian_dynamics}. It requires no additional tuning of 
+path length or step size. The \pymc project supports the usage of custom operations in order to model more complex processes. This is needed to 
+model the measurement process of an IACT.
+The main hurdle that needs to be overcome in order to use \pymc is the implementation of a custom differentiable \theano operation 
+which describes the interaction of the spectral model with the instrument response.
+The following steps are applicable to all sorts of spectral models; however, I will concentrate on the log-parabolic spectral shape 
+introduced in ~\cref{sec:log-par-he}.
+Fitting this model means to find those parameters which are most likely to represent the observed
+data according to the statistical model we defined in \cref{sec:stats_model} in particular in \cref{eq:full_ll}.
+For a log-parabolic spectrum we are fitting three model parameters $N(E; N_0, \alpha, \beta)$ as defined in \cref{eq:logpar}. 
+The likelihood has two parameter vectors $\mu_s$ and $\mu_b$. Each $\mu_s$ models the expected number of observed counts as predicted by the assumed 
+spectral model applied to the instrument's response function.
+In other words, the entries in the $\mu_s$ vector represent the expected counts in the corresponding bin of estimated energy as seen by the telescope's analysis.
+As discussed before, the background parameters $\mu_b$ are considered nuisance parameters. They do not carry information about 
+the gamma-ray source under observation.
+As seen in \cref{sec:irf} the number of expected events $\mu_s$ can be calculated from the model $N$ when both the migration matrix $\edisp$ and the effective area 
+$\aeff$ are known. As per \cref{eq:iact_measurement_discrete} the expected number of counts from the gamma-ray source for an observation of length $\tobs$ is
+\begin{equation}
+  \label{eq:mu_s_calc}
+  \mu_s =  \edisp \, (c \odot \aeff) \, \tobs,
+\end{equation}
+where $\odot$ is the element-wise multiplication operator and $c$ is the expected gamma-ray flux from the discretized spectral model.
+The spectral model is discretized per energy bin $\Delta \etrue$ to get the flux within an energy range from the differential flux
+\begin{equation}
+  \label{eq:spectrum_discrete}
+  c_{\Delta \etrue} = \int_{\Delta \etrue} N(E; N_0, \alpha, \beta) \diff{E}.
+\end{equation}
+\Cref{eq:mu_s_calc} can only be applied if the size and number of energy bins matches those of $\aeff$ and $\edisp$. 
+The same has to be true for the observed data $\Non$ and $N_\text{off}$ in order to calculate the likelihood.
+In case the binning does not match, the IRFs need to be recomputed or interpolated and re-binned 
+to fit the discretized spectral model. 
+The energy bins are always logarithmically spaced. This is necessary for two reasons. 
+First, as discussed in \cref{ch:theory}, gamma-ray distributions from astrophysical source roughly follow power-law with a negative index.  
+The number of observed events steeply declines with increasing energy. Uniformly spaced energy bins would mostly be empty.
+Second, the simulated events also follow a power-law distribution. This has practical reasons. The higher the primary particle's energy, 
+the larger the number of secondary particles in the shower and consequently the computing requirements. Hence, the simulated particle spectrum 
+is often built as a power-law distribution. 
+Logarithmic bins in some variable $E$ and basis $b$ are defined as 
+\begin{equation}
+  \log_b(E_{i + 1}) = \log_b(E_{i}) + w,
+\end{equation}
+where $w$ is the constant, logarithmic bin width. The bin edges can hence be calculated as 
+\begin{equation}
+  E_{i + 1} = b^{\log_b(E_{i}) + w} = b^{\log_b(E_{i})} b^w = E_i b^w.
+\end{equation}
+This form of binning is used for both estimated and true energy in the stored IRFs and the observed count vectors. The data I use to fit 
+the Crab Nebula is binned with \num{20} bins per decade of energy. It is important to take all bins into account in which 
+the telescope still has a non-zero trigger probability. Event counts can migrate between bins when the predicted count vector in true energy $(c \odot \aeff)$ is multiplied
+by the dispersion matrix. For the data fitted here a total of \num{80} bins in true energy are used.
+\Cref{fig:iact_counts} shows the on and off counts for the Crab Nebula data published for the joint analysis in the previously mentioned paper~\cite{joint_crab}.
+The figure shows the number of recorded events per bin in \emph{estimated} energy.
+This data will be used to fit a flux model of the Crab Nebula. 
+
+\begin{figure}
+  \centering
+  \includegraphics{build/iact_counts.pdf}
+  \caption[Measured counts in the open datasets.]{Counts from the signal and background regions of the telescope's published datasets of the Crab Nebula. The thick colored lines 
+  show the counts in the signal region. The thin lines show the corresponding background counts $\alpha \Noff$.
+  The number of bins is the same for all data for both signal and background regions. 
+  The \magic and \veritas telescopes are more sensitive in the lower energy ranges than \fact. \fact, being only a single telescope with a \SI{4}{\metre} mirror, collects less light 
+  than the other telescopes. \hess can only observe the Crab Nebula at very low altitude angles because it is located far south of the equator in Namibia.
+  This makes \hess less sensitive to this particular source. Note that the \emph{estimated} energy can differ wildly between telescopes. 
+  Energy estimators have inherent biases and finite resolutions. A \SI{1}{TeV} shower seen by \fact will have a different estimated energy than the energy estimated by the \magic 
+  telescope on the same shower.
+  }
+  \label{fig:iact_counts}
+\end{figure}
+
+The vector of expected signal counts $\mu_s$ used in the likelihood defined in \cref{eq:full_ll} depends on the parameters
+of the spectral model.
+In order to use Hamilton Markov Chain methods, the gradient of the posterior $p(\mu_s(N_0, \alpha, \beta,), \mu_b \mid \Non, \Noff)$
+with respect to the spectral model parameters $N_0$, $\alpha$, and $\beta$ has to be calculated. 
+I use the automatic differentiation capabilities of \theano and \pymc to build the gradient. In a slightly oversimplified view, automatic differentiation
+finds the gradient of a function by repeated application of the chain rule.
+Doing so for the likelihood $\mathcal{L}$ is not problematic
+as it consist of elementary functions, the Poisson density, with known gradients. The signal parameter $\mu_s(N_0, \alpha, \beta,)$
+includes the calculation of the integral in \cref{eq:spectrum_discrete}.
+The integral can be solved analytically.
+To simplify, I replace the energy $E$ in \cref{eq:logpar} with a unitless variable $x$ and drop the normalization $E_0$. The integral becomes
+\begin{align*}
+  \medmuskip=1mu
+  \thinmuskip=2mu
+  \thickmuskip=2mu  
+  \int N(x; N_0, \alpha, \beta) \diff{x} &= N_0 \int x^{-\alpha -\beta \log_{10}(x)} \diff{x} \\
+                                         &= N_0 \int x^{-\alpha -\beta' \log(x)} \diff{x} \\
+                                         &= N_0 \int \exp\bigl(-\alpha\log(x) - \beta'\log^2(x) \bigr) \diff{x},
+\end{align*}
+where $\beta' = \frac{\beta}{\log(10)}$ and the substitution $x = e^{\log(x)}$ was used in the last line.
+Now the integration variable is substituted with $u = \log(x)$ and $\diff{u} = \frac{1}{x} \diff{x}$. Solving for $\diff{u}$ and replacing $x = e^{\log(x)} = e^{u}$ 
+yields 
+\begin{align*}
+  \label{eq:integral_solution}
+  \medmuskip=0mu
+  \thinmuskip=1mu
+  \thickmuskip=1mu  
+  \int\!\! N(x; N_0, \alpha, \beta) \diff{x} &=  N_0 \int \exp\bigl(-\alpha u - \beta' u^2 \bigr) \exp(\log(u)) \diff{u} \\
+                                         &=  N_0 \int \exp\bigl(- \bigl((\alpha  - 1) u  +  \beta' u^2 \bigr)\bigr) \diff{u} \\
+                                         &=  N_0 \frac{1}{2} \sqrt{\frac{\pi}{\beta'}} \exp\biggl(\frac{(\alpha  - 1)^2 }{4\beta'}\biggr) \operatorname{erf}\biggl(\log(x)\sqrt{\beta'} + \frac{(\alpha - 1)}{2\sqrt{\beta'}} \biggr), \numberthis
+\end{align*}
+where $\erf(x) = \frac{2}{\sqrt{\pi}} \int_0^x e^{-t^2}\!\!\diff{t}$ is the error function.
+The last step in \cref{eq:integral_solution} is the solution to integral number 2.325.13 in the integral table compiled by Gradshteyn and Ryzhik~\cite[108]{integral_table}.
+The \theano library includes a symbolic tensor operation to compute the error function and its derivatives.
+Hence, \cref{eq:integral_solution} can be used to sample the posterior distribution with \pymc having all gradients available via automatic differentiation.
+Unfortunately, the integral's solution is very sensitive to round-off errors. To calculate the definite integral of $N(x; N_0, \alpha, \beta)$ between points $a$ and $b$, 
+the difference between two error functions has to be evaluated
+\begin{equation}
+  \int_a^b N(x; N_0, \alpha, \beta) \diff{x} \propto \Biggl[\operatorname{erf}\biggl(\log(b)\sqrt{\beta'} + K \biggr) - \operatorname{erf}\biggl(\log(a)\sqrt{\beta'} + K \biggr) \Biggr],
+\end{equation} 
+where $K = \nicefrac{(\alpha - 1)}{2\sqrt{\beta'}}$.
+The error function converges quickly to $\lim_{x \rightarrow \infty} \erf(x)\! = \! 1$ for large values of $x$ and, since $\erf$ is odd, $\lim_{x \rightarrow {-\infty}} \erf(x)\! =\! {-1}$
+for small values of $x$ respectively. 
+\begin{wrapfigure}[13]{o}{0.5\linewidth}
+  % \vspace{-0.7\baselineskip}
+  \centering
+  \includegraphics{build/erf.pdf}
+  \caption[Plot of the error function.]{The error function $\erf(x)$ quickly converges to 1. For 
+  values of $x \gtrsim 6$, the implementation of the error function returns 1
+  due to the limited precision of \SI{64}{\bit} floating-point arithmetic.}
+  \label{fig:erf}
+\end{wrapfigure}
+The quick convergence becomes apparent in \cref{fig:erf}, which shows the error function for values close to 2.
+During Markov chain sampling, unfavorable combinations of $\alpha$ and $\beta'$ can get evaluated where $\beta'$ is much smaller than $\alpha$. 
+For these configurations the argument of the error function easily reaches values larger than 6, at which point 
+$1\!\! -\!\! \erf(6)\! \approx\! \num{E-17}$. This value lies far below the machine epsilon for IEEE floats with 64 bits of approximately \num{2.2e-16}.
+For this reason, large values of $a$, $b$, or $K$ lead to rounding errors when evaluating the error function. 
+For these values the error function will be rounded to unity $\erf(6)\!  \underset{\scaleto{\SI{64}{\bit}}{4pt}}{=} \! 1$.
+Hence, the evaluation of $\int_a^b N(x; N_0, \alpha, \beta) \diff{x}$ wrongly returns 0 for large parts of the sampled parameter space due to 
+the limited floating point precision.
+The problem can be circumvented by approximating the integral in \cref{eq:spectrum_discrete} by numerical methods. 
+
+Despite the fact that Hamilton Monte Carlo needs less sample values than a non-Hamilton approach, several thousand samples are still needed for this particular posterior. 
+Since the gradient gets evaluated for each energy bin independently, the total number of integral computations quickly reaches many millions. 
+% The trapezoidal rule, long thought to have been invented in England during the 15\th century, was already used by the early Babylonian astronomers to 
+% calculate the position of Jupiter~\cite{trapezoidal_babylon}.
+While it is a relatively crude way to approximate the area under a curve, I implemented the trapezoidal rule
+since it can be easily vectorized to compute the integral in all energy bins at once.
+The trapezoidal rule approximates the definite integral $\int_a^b f(x) \diff{x}$
+by partitioning the integration interval into several smaller regions in which $f(x)$ is assumed to be linear. 
+Any function $f(x)$ can be approximated by a combination of linear functions. The finer the partitioning, the better the approximation. 
+The area under the linear function in partition $i$ is simply the width of the partition $\Delta x_i = x_{i + 1} - x_i$ times the average value of $f(x)$ in that partition
+\begin{equation}
+  \int_a^b f(x) \diff{x} \approx \sum_{i = 0}^{N - 1} \frac{1}{2} \bigl(f(x_{i}) +  f(x_{i + 1})\bigr) \Delta x_i,
+\end{equation}
+where $N$ is the number of partitions and $a \leq x_i < x_{i + 1} \leq b$. This can be easily generalized to integrate vector functions $\mathbf{f}: \mathbb{R}^M \rightarrow \mathbb{R}^M$, where $M$
+is the number of energy bins in the model.
+Using the trapezoidal rule, the gradients $\dddp{c}{\alpha}$, $\dddp{c}{\beta}$, and $\dddp{c}{N_0}$ can now be expressed as a sum
+of elementary functions. In addition to the potential speed improvements, this allows the use of automatic differentiation to find the derivatives
+of the posterior distribution with respect to the model parameters. 
+At this point we have all necessary ingredients to define the model priors and sample the posterior distribution using \pymc. 
+The priors on the spectral parameters are chosen to be uniform distributions $U$ which have their lowest 
+bound at 0 to avoid negative values during sampling.
+%  \todo{use proper priors maybe? Also. autocorrelation see https://arxiv.org/pdf/1712.03549.pdf}
+In this context the uniform prior conveys the lack of knowledge about these model parameters.
+% The prior for the vector of nuisance parameters $\mu_b$ is loosely constrained by the 
+% background measurements $\Noff$. The prior is a Gaussian distribution $\mathcal{N}$ centered on the $\Noff$ with a relatively large 
+% standard deviation of 5.
+The calculation of the $\mu_s$ vector given in \cref{eq:mu_s_calc} is performed separately for each observation taking into 
+account the different instrument responses per observation.
+The complete statistical model can be summarized as 
+\begin{align*}
+  N_0 &\sim \operatorname{U}(a\! =\!0, b\! = \!\infty) \\
+  \alpha &\sim \operatorname{U}(a\! =\!0, b\! = \!\infty) \\
+  \beta &\sim \operatorname{U}(a\! =\!0, b\! = \!\infty) \\
+  \quad \\
+  \mu_s &\sim \sum_{\mathclap{\text{Observations}}} \edisp \, (\operatorname{c}(N_0, \alpha, \beta) \odot \aeff) \, \tobs \\
+  \mu_b &\sim  \operatorname{U}(a\! =\!0, b\! = \!\infty)
+  \quad \\
+  p &\sim \operatorname{Poisson}(\lambda\! =\!\mu_s + \talpha \mu_b \mid \Non) \cdot \operatorname{Poisson}(\lambda\! =\! \mu_b \mid \Noff).
+\end{align*}
+This set of equations is an almost verbatim copy of the \pymc code used to define the model in \python.
+I sample the model with the $\Non$ and $\Noff$ data as depicted in \cref{fig:iact_counts} for each telescope separately.
+The Markov chain for this fit was built 
+from \input{build/pymc_results/fit/fact/num_samples.txt} samples in \input{build/pymc_results/fit/fact/num_chains.txt} chains. 
+On recent multi-core CPUs the sampling will take less than a minute per dataset when the chains are sampled in parallel.
+\Cref{tab:pymc_results} shows the results of the sampled parameter values. The lines in \cref{fig:pymc_fit_spectrum} show the fitted models 
+together with the SSC model calculated in \cref{ch:crab-sed}.
+The fit ranges for the single telescope were chosen according to the ranges selected in our paper~\cite{joint_crab} to make the results comparable.
+Appendix~\ref{ap:sampler_details} gives some implementation details for the \pymc and \theano programs used to produce these results. 
+All code necessary to reproduce these results is available at
+  \githubcenter{tudo-astroparticlephysics/ll_experiments}
+The repository contains two command line applications which can read the published data and store the sampled Markov chains to disk. 
+A configuration file allows to modify the energy ranges and number of bins.
+
+\begin{table}
+  \centering
+  \label{tab:pymc_results}
+  \caption[Results of the \pymc spectral fits]{Fit results for a log-parabolic model as defined in \cref{eq:logpar} for the statistical model defined in \cref{sec:stats_model} including all nuisance 
+  parameters. The numbers are computed by calculating the 16\th, 50\th and 84\th percentile of the marginalized sample distributions.
+  These numbers are compatible with the ones presented in our paper~\cite{joint_crab}, which used a numerical likelihood minimization to find the best fit and 
+  a likelihood-ratio test to determine the errors. As shown in \cref{fig:pymc_fit_spectrum}, these parameters closely match the shape of the
+  Crab Nebula SED fitted in \cref{ch:crab-sed}.
+   }
+  \begin{tabular}{l  c  c  c}
+  \textbf{Telescope} & {$\nicefrac{\mathbf{N}_0}{ 10^{-11} \si{TeV^{-1}.cm^{-2}.s^{-1}}}$}  & \bm{\alpha} & \bm{\beta} \\
+  \addlinespace[0.5em]
+  \fact & \input{build/pymc_results/fit/fact/amplitude.txt} & \input{build/pymc_results/fit/fact/alpha.txt} & \input{build/pymc_results/fit/fact/beta.txt} \\
+  \addlinespace[0.3em]
+  \magic & \input{build/pymc_results/fit/magic/amplitude.txt} & \input{build/pymc_results/fit/magic/alpha.txt} & \input{build/pymc_results/fit/magic/beta.txt} \\
+  \addlinespace[0.3em]
+  \hess & \input{build/pymc_results/fit/hess/amplitude.txt} & \input{build/pymc_results/fit/hess/alpha.txt} & \input{build/pymc_results/fit/hess/beta.txt} \\
+  \addlinespace[0.3em]
+  \veritas & \input{build/pymc_results/fit/veritas/amplitude.txt} & \input{build/pymc_results/fit/veritas/alpha.txt} & \input{build/pymc_results/fit/veritas/beta.txt} \\
+  \end{tabular}
+\end{table}
+
+\begin{figure}
+  \centering
+  \input{build/pymc_results/pymc_fit_result.pgf}
+  \caption[Results of the \pymc spectral fits]{Results of the \pymc fit to the published data used in our paper~\cite{joint_crab}. 
+  The best fit is taken to be the median of the sample values in the Markov chains.
+  The colored lines indicate the log-parabolic spectral model corresponding to these parameters.
+  The error bands around the spectral lines are computed by evaluating the spectral model for 5000 randomly chosen 
+  parameter combinations from the Markov chain. Of these values the area between the 16\th and 84\th percentile is shown.
+  As a visual reference, the dashed black line shows the best fit result of the SSC model 
+  from \cref{ch:crab-sed}. Note that even though flux points from \hess and \magic are used in \cref{ch:crab-sed}, the data used here comes from different observations. 
+  The SSC model takes a much larger energy range into account and uses data from a different observation period.
+  It does, however, match the fitted spectra remarkably well. The pivot point for the inverse-compton emission 
+  of the SSC model is lower than that of the fitted log-parabola models. This could indicate a bias in the assumed spectral model
+  for the fit for which the pivot energy was fixed at \SI{1}{TeV}. This effect might be mitigated if the IACT could detect lower energies.
+  The high-energy part of the fitted models also drops off more quickly than the SSC model. This could indicate a bias in the SSC model 
+  due to the meager amount of flux points in the \si{TeV} range used to fit its parameters. 
+  }
+  \label{fig:pymc_fit_spectrum}
+\end{figure}
+
+\section{Unfolding of Flux Points}
+\label{sec:unfolding}
+In the previous section an astrophysical source model was fitted to measured count spectra.
+The predictions of the assumed model were fed through the detector's response to 
+imitate the process of observing the source with a telescope. The resulting count spectrum 
+was then compared to the measured count spectrum. 
+The unfolding approach is independent of a physical source model. 
+Unfolding is a ubiquitous problem throughout particle physics and image processing. 
+Detectors in high-energy physics often observe the by-products of particle interactions, as is the case for IACT measurements.
+The primary particles properties are obfuscated by finite detector resolution and the stochastic nature of particle interactions. 
+Wherever counts of particles are measured, limited acceptance probabilities obscure the true particle distributions. 
+In order to find the true distribution of the primary particles with respect to some observable, e.g. kinetic energy, the detector 
+effects have to be \emph{reversed}. 
+Literature about unfolding often describes the measurement process in terms of an integral equation 
+\begin{equation}
+  \label{eq:inverse}
+  g(\mathbf{x}) = \int_{\Omega} A(\mathbf{x}, \mathbf{y})f(\mathbf{y}) \diff{\mathbf{y}} = (Lf)(\mathbf{y}).
+\end{equation}
+In this abstract representation, $A$ describes the detector's response to particles with respect to the observable $\mathbf{y}$ and true particle 
+distribution $f(\mathbf{y})$. The linear operator $L$ describes the operation in terms of an integral transform. 
+The distribution of observed events with respect to some estimated variable is $g(\mathbf{x})$.
+We are interested in finding the true distribution $f$ from the observed $g$. 
+In mathematics this kind of task is called an \emph{inverse problem}. Research about inverse problems is plentiful.
+With the rise of medical imaging techniques and the availability of cheap imaging sensors, interest in solving these problems 
+has increased over the recent decades. 
+The excellent review article \enquote{Modern Regularization Methods for Inverse Problems} provides a rather extensive overview of 
+the historical development and current state-of-the-art methods~\cite{benning_inverse_review}.
+Popular methods for tackling inverse problems, especially in the field of high-energy physics, 
+include the expectation-maximization method~\cite{em_algorithm}, variational methods, building the SVD inverse, and even 
+machin- learning approaches like DSEA~\cite{bunse_inverse} and network-based approaches like~\cite{inverse_net_1,inverse_net_2,inverse_net_3}.
+The machine-learning based methods require simulated, labeled, data to build a model. No simulated data is available in the open datasets used in this chapter
+and a variational method is employed.
+Problems such as \cref{eq:inverse} are often ill-posed as no unique solution exists.
+The general idea to solve the ill-posed problem is to approximate it by well-posed ones~\cite[3]{benning_inverse_review}.
+To ensure the existence of a unique solution, the space of possible solutions is constrained via \emph{regularization}. 
+% One common regularization technique, the Thikonov regularization, is applied for variational methods.
+% Variational methods, such as least-squares, solve \cref{eq:inverse} by minimizing a loss function $\operatorname{F}(g, (Lf)(\mathbf{y}))$. In the case of 
+% least-squares the loss function is the $L^2$ norm of the 
+Variational methods solve \cref{eq:inverse} by minimizing a loss function $\operatorname{F}(g, (Lf)(\mathbf{y}))$, which in the case of least-squares regression is simply 
+the $L^2$ norm of $(Lf)(\mathbf{y}) - g(\mathbf{x})$. The shape of the solution can be constrained by including a regularization term in the loss function 
+\begin{equation}
+  \hat{g} = \argmin_{f} \norm{ (Lf)(\mathbf{y}) - g(\mathbf{x})} + \operatorname{T}(f(\mathbf{y})),
+\end{equation}
+where $\operatorname{T}(f(\mathbf{y}))$ is the so-called Thikonov regularization term. The Thikonov function $T$ suppresses undesirable solutions 
+and often depends on a parameter $\alpha$ which controls the \emph{strength} of regularization.
+A common choice for the regularization term is $\operatorname{T}(f(\mathbf{y})) = \norm{\alpha f(\mathbf{y})}$ which penalizes solutions with large norms.
+This special form of regularization is called $L^2$ regularization or ridge regression in the machine-learning community's vernacular. 
+% $T$ can also encode some smoothness constraint by penalizing large second derivatives via the Hesse matrix $\mathbf{H}$ 
+Another way to simplify the inverse problem  is by approximating the solution $f(\mathbf{x})$ and the operator $L$ by a discretized form. The equation above then simplifies to a matrix multiplication
+$\mathbf{x} = A \mathbf{y}$. This can be understood as a form of regularization, where the solution is forced into the real vector space $\mathbb{R}^{\operatorname{dim}(\mathbf{x})}$.
+In the matrix formulation the problem can be solved by variational methods just as well. The loss function $F$ can be motivated from 
+statistical arguments as well. 
+The likelihood of observing $g$ when given the true distribution $f$ together with a a-priori probability density $\pi(f)$ can be 
+used to build the posterior distribution $p \sim \pi \mathcal{L}$ as seen in \cref{sec:mcmc}. 
+In a statistical interpretation this posterior distribution acts as the loss function. 
+The attentive reader will notice that this exact problem, in its discretized form, has already been solved in the previous \cref{sec:spectral_fit}. 
+The \cref{eq:inverse} above corresponds 
+to \cref{eq:dispersion_prob} which in its discretized form becomes \cref{eq:mu_s_calc}. In the previous section we regularized the problem 
+further by constraining the vector of true counts $c$ to follow the shape of the log-parabolic spectral model by integrating the model in energy bins
+as stated in ~\cref{eq:spectrum_discrete}. 
+For IACT measurements we can solve the inverse problem to directly produce discrete flux points. 
+In this case the flux of the source is assumed to be constant within an energy bin so that equivalently to \cref{eq:spectrum_discrete}
+\begin{equation*}
+  c_{\Delta \etrue} = \int_{\Delta \etrue} N(E) \diff{E} = N_{\Delta \etrue} \Delta \etrue,
+\end{equation*}
+where $N_{\Delta \etrue}$ is the flux of the source in energy bin $\Delta \etrue$.
+All that has changed in comparison to the previous section is the shape of the spectral model. The new spectral model has as many parameters as 
+the number of bins in true energy, which makes the problem harder to solve.
+Despite the fact that the model-dependent approach and the unfolding approach can be interpreted, and implemented, as one and the same variational problem,
+high-energy physicists make a clear distinction between the two methods. 
+The input data remains the same, but is binned differently. I use \input{build/pymc_results/unfold/bins_per_decade_e_true.txt} bins per decade of true 
+energy and \input{build/pymc_results/unfold/bins_per_decade_e_est.txt} bins per decade of estimated energy.
+Two additional \emph{overflow bins} are used on the true energy axis in order to cover the entire range of energies in which the 
+trigger probability is not zero. 
+% These bins catch counts migrating outside the proper fit range and 
+The fit range is selected from the range in which the number of excess counts $N_\text{excess} = \Non - \tobs \Noff$
+meets a threshold of at least \num{4} counts.
+More energy bins can be used for longer observations with more data or when constraining the likelihood with stronger priors. 
+The newly binned count spectra from the signal and background regions in the sky 
+are entered into the likelihood from \cref{eq:full_ll}. The vector of expected counts from the background region $\mu_b$ is directly constrained 
+by the entries in $\Noff$. Just as we did in the previous section, the background counts $\mu_b$ are considered to be nuisance parameters 
+without further physical meaning. They are only needed to calculate the expected counts in the on-region $\mu_s + \talpha \mu_b$. 
+As in the previous section I use \pymc to sample the posterior using Markov chains. The prior for the expected flux $N$ is 
+an almost flat normal distribution which is truncated at 0 to avoid sampling of negative numbers. A simplified view of the model is given by the  
+equations below.
+\begin{align*}
+  N &\sim \operatorname{TruncatedNormal}(\mu\! =\!0, \sigma\! = \! 50) \\
+  \mu_b &\sim \operatorname{U}(a\! =\!0, b\! = \!\infty) \\\
+  \quad \\
+  \mu_s &\sim  \sum_{\mathclap{\text{Observations}}} \edisp \, (N \Delta \etrue \odot \aeff) \, \tobs \\
+  \quad \\
+  p &\sim \operatorname{Poisson}(\lambda\! =\!\mu_s + \talpha \mu_b \mid \Non) \cdot \operatorname{Poisson}(\lambda\! =\! \mu_b \mid \Noff)
+\end{align*}
+
+\Cref{fig:unfolding_results} shows the resulting flux points overlayed on the spectral models fitted in the previous \cref{sec:spectral_fit}.
+The Markov chain was built from \input{build/pymc_results/unfold/fact/num_samples.txt} samples in \input{build/pymc_results/unfold/fact/num_chains.txt} chains. 
+\Cref{tab:pymc_unfold_results} lists the flux points for each telescope including their 16\th and 84\th percentile. 
+The fitted fluxes are correlated with their neighboring bins as shown in \cref{fig:bin_correlations}. Correlations are calculated between 
+the samples in the Markov chain using Spearman's correlation coefficient. 
+
+
+
+\begin{figure}
+  \centering
+  \includegraphics{build/pymc_results/pymc_unfold_correlations.pdf}
+  \caption[Correlation between unfolded flux points.]{The figure shows the correlation between the parameters as sampled by \pymc for each of the 4 telescopes. For unfolding there are as many 
+  parameters as energy bins. These correlations show the interdependence between neighbouring bins 
+  in the resulting fluxes. Bins with lower energies are on the top-left of each matrix. High correlations indicate a strong migration between 
+  bins in energy ranges, where the dispersion matrix $\edisp$ has a
+  rather broad distribution. This effect is stronger towards the lower end of the energy range, at which point the energy estimation has a larger resolution. 
+  The diagonal elements in the matrices are all equal to 1 and masked out in these pictures. The overflow bins are not included in this representation.
+  The low-energy bins for the \fact dataset show the highest correlation in this comparison. Indeed, the comparatively large amount of background 
+  events in the dataset and the large energy resolution visible in \cref{fig:fact_irf} have an adverse effect on the accuracy of the unfolding, 
+  not to mention the fact that the energy dispersion matrices $\edisp$ for the telescopes are calculated from simulations which cannot represent 
+  real data perfectly.
+  }
+  \label{fig:bin_correlations}
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \includegraphics{build/pymc_results/pymc_unfold_result.pdf}
+  \caption[Results of the \pymc unfolding]{Results of the \pymc fit to the published data used in our paper~\cite{joint_crab}. 
+  The black error bars show the unfolded flux points. As before, these 
+  values are calculated from the 16\th, 50\th and 84\th percentile of the marginalized posterior distributions gained from the Markov sampler.
+  The colored lines indicate the log-parabolic spectral model
+  as fitted in the previous \cref{sec:spectral_fit}.
+  The fit ranges for the unfolding approach are evidently smaller than those used for the spectral fit.
+  As mentioned in the text, the fit ranges were found by selecting the bin edges in which the distribution of excess events
+  had at least 4 counts. This rather simple heuristic to find smaller fit ranges is required to help the \pymc sampler to converge.
+  Intuitively speaking, this is a consequence of the fact that the spectral model regularizes the inverse problem 
+  and constraints the shape of the solution. Hence, the direct fitting of flux points has larger uncertainties and can only give reliable 
+  estimates in the energy range where sufficient statistics are available.
+  Still, the fitted flux points match the spectral models form the previous section quite well considering the fact that the underlying model assumptions 
+  are utterly different.
+  }
+  \label{fig:unfolding_results}
+\end{figure}
+
+\begin{table}
+  \renewcommand{\arraystretch}{1.2}
+  \caption[Results of the \pymc unfolding]{Results of the \pymc \emph{unfolding}. Similar to the results presented in the previous \cref{sec:spectral_fit}, these 
+  values are calculated from the 16\th, 50\th and 84\th percentile of the marginalized sample distributions.
+  The input data, count vectors in estimated energy, is discretized into \protect{\input{build/pymc_results/unfold/bins_per_decade_e_est.txt}} bins
+  per decade in estimated energy. 
+  The unfolded flux points are distributed into \input{build/pymc_results/unfold/bins_per_decade_e_true.txt} bins per decade in true energy. 
+  The additional \emph{overflow bins} are not shown in the table.
+  The Markov chain consists of \input{build/pymc_results/unfold/fact/num_samples.txt} samples in \input{build/pymc_results/unfold/fact/num_chains.txt} chains
+  and can be sampled in several seconds on a modern CPU. 
+  }
+  \label{tab:pymc_unfold_results}
+  \footnotesize{
+  \rowcolors{3}{white!92!black}{}
+  \begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}  l@{\extracolsep{\fill}} c@{\extracolsep{\fill}} c@{\extracolsep{\fill}} c@{\extracolsep{\fill}} c}
+  \multicolumn{2}{@{}l}{\normalsize{\textbf{Energy / \si{TeV} }}}  & \multicolumn{4}{c}{\normalsize{\textbf{Flux / \si{TeV^{-1}.s^{-1}.cm^{-2}} }}} \\
+  \addlinespace[0.5em]
+  & & \magic & \fact & \veritas & \hess \\
+  \addlinespace[0.5em]
+  \input{build/pymc_results/unfold/result_table.txt}
+  \end{tabular*}
+  }
+\end{table}
+
+
+\newcommand{\cov}{\operatorname{Cov}}
+\section{Notes on Uncertainty Propagation}
+\label{sec:error_prob}
+Error bands like the ones calculated for \cref{fig:sed_fit_he} and \ref{sec:spectral_fit} cannot easily be estimated by using standard 
+Gaussian uncertainty propagation. This form of error propagation is often used when some function $f(\mathbf{x})$ depends on parameters $\mathbf{x}$ whose
+probability distributions are assumed to be Gaussian and can be described using the covariance matrix $\mathbf{V_{\mathbf{x}}}$. 
+In case the function $f$ is linear in $\mathbf{x}$  with coefficients $\mathbf{B}$ it can be written in matrix form as $f(\mathbf{x}) = \mathbf{B} \mathbf{x}$.
+For any two random variables $X$, $Y$ and scalars $a$ and $b$ the covariance can be transformed like $\cov(aX, bY) = ab \cov(X, Y)$. 
+The elements in the covariance matrix contain the variance and covariance between the entries in the parameter vector $\mathbf{x}$.
+Hence, the covariance of the parameters $\mathbf{V_{\mathbf{x}}}$ can be transformed into the covariance matrix for the function $f$
+by using a simple matrix transform 
+\begin{equation*}
+  V_{f} = B \mathbf{V_{\mathbf{x}}} B^T.
+\end{equation*}
+In the non-linear case the function $f$ is usually linearized using its truncated Taylor approximation to 
+\begin{equation*}
+  f \approx f(\mathbf{\mu_x}) + \mathbf{J_f} (\mathbf{x} - \mathbf{\mu_x}),
+\end{equation*} 
+where $K$ is some constant and $\mathbf{J_f}$ is the Jacobian matrix of $f$. 
+The covariance of $f$ can then again be written as a matrix operation 
+\begin{equation*}
+  V_{f} \approx \mathbf{J_f} \mathbf{V_{\mathbf{x}}} \mathbf{J_f}^T.
+\end{equation*}
+This approximation works reasonably well in most cases. It can be used whenever the truncated Taylor expansion is close to the true value of $f$ within the region of uncertainty 
+of $\mathbf{x}$~\cite{error_tr}. 
+\begin{wrapfigure}{o}{0.5\linewidth}
+  \centering
+  \includegraphics{build/error_propagation.pdf}
+  \caption[Error propagation schematic explanation.]{This figure, recreated from figure 2 in~\cite{error_tr}, shows the possible bias introduced by standard uncertainty propagation.}
+  \label{fig:error_propagation}
+\end{wrapfigure}
+When propagating uncertainties of fitted spectral parameters for energy distributions in astrophysics, this assumption does not always hold. 
+Even if the assumption of Gaussian uncertainties on the input $\mathbf{x}$ holds, the energy spectra under scrutiny are highly non-linear and the 
+linear taylor approximation is biased. 
+\Cref{fig:error_propagation} shows a power-law $E^{-\gamma}$ for fixed energy and different values of the index $\gamma$ on the x-axis.
+The figure depicts the bias that can be introduced when approximating a power-law with a linear Taylor series.
+Energy spectra in astrophysics often have high curvature with respect to the fitted parameters.
+Here a power-law with spectral index $\gamma$ is shown together with its first-order Taylor expansion.
+In this case the uncertainty of $\gamma$, as indicated by the distribution on the x-axis, is biased.  
+The true distribution of $E^{-\gamma}$ is shifted and non-symmetric. 
+The error bands for the spectrum plots shown here and in our paper are build by sampling 
+a multivariate Gaussian with the covariance estimated by the fitting procedure $\mathbf{V_{\mathbf{x}}}$. The model is then 
+evaluated for each sampled parameter combination. At each evaluated energy, the percentiles are noted and the area in-between is marked.
+This way non-symmetric error estimation can be performed.
+% The distribution of the index $\gamma$ on the lower axis is transformed by the linear Taylor expansion into the distribution 
+% indicated on the y-axis. 

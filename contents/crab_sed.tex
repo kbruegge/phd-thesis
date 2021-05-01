@@ -1,0 +1,116 @@
+\chapter{Modeling the Crab Nebula Emission}
+\label{ch:crab-sed}
+Modeling the broadband photon emission of gamma-ray sources is an important tool to study the driving forces behind cosmic-ray acceleration.
+Accurate modeling can give valuable clues about the magnetic fields present in these sources as well as matter distribution and 
+composition. 
+Having access to multi-wavelength data from many instruments is pivotal to SED modeling. Unfortunately collecting this data is 
+often tedious if not outright impossible. These data points are often proprietary and not available online. Even data published 
+in journal papers is often solely provided as a plot without accompanying tables or data files. This problem will become 
+an even larger problem in the future of multi-messenger astronomy. In an effort to change the status quo, flux data of the Crab Nebula has
+been collected by \cite{meyer_2010,hegra-crab-data,buehler-crab-data} and published within the open-source \gammapy project.
+I used this data to evaluate a simple model of the acceleration processes in the Crab Nebula. 
+Previous analyses~\cite{meyer_2010,atoyan_crab} indicate that two distinct electron populations are present in the source. 
+In this case I am only interested in the high-energy part of the photon spectrum above \SI{E7}{\eV}. Here, a single 
+electron population suffices to describe the data. I use a \ssclong model to calculate
+the gamma-ray flux given the shape of the electron distribution and the magnetic field strength. 
+I assume that the magnetic field is of constant strength $B$ and isotropic throughout the entire acceleration region.
+The electron population is modeled to be distributed according to a log-parabolic energy spectrum 
+\begin{equation}
+  \label{eq:electron_model}
+    N(E) =H(E,\, E_{\text{min}}, \, E_{\text{max}}) A \left( \frac{E}{E_0} \right)^{-\alpha -\beta \log_{10}\left(\frac{E}{E_0}\right)},
+\end{equation}
+where $H$ is a step function describing a cutoff beyond maximum and minimum electron energies of $E_\text{min}$ and $E_\text{max}$.
+\begin{equation*}
+  \label{eq:step_function}
+    H(E) = {
+      \begin{cases}
+        E : & E < E_{\text{min}} \; \text{and} \; E \geq E_{\text{max}} \\
+        0 : & \text{otherwise} \\
+      \end{cases}
+    }
+\end{equation*}
+The electrons produce synchrotron emission in the nebula's magnetic field as described in~\ref{sec:synchro}
+and inverse Compton emission on existing photon fields as described in~\ref{sec:ic}.
+Following~\cite{atoyan_crab}, four photon fields are assumed to seed the IC process. First, there is the photon field of
+the cosmic microwave background (CMB), which is modeled as blackbody radiation with a temperature of \SI{2.7}{\kelvin}.
+Observations in the optical and infrared regime show glowing filaments of gas and dust inside the nebula. 
+This second photon field is also assumed to be an isotropic blackbody radiator. The dust has an approximate temperature of \SI{70}{\kelvin}
+and an energy density of \SI{0.5}{\eV \per \cubic \centi \metre}.
+The third field is due to galactic background starlight with a temperature of \SI{5000}{\kelvin} and a density
+of \SI{1}{\eV \per \cubic \centi \metre}. The most important seed for IC emission, however, is the high-energy photons 
+produced by the synchrotron emission within the nebula itself.
+All photon fields are assumed to have uniform number density within the nebula. While certainly accurate for the CMB photons, more 
+accurate modeling of the photons' spatial distributions might improve results.
+This SSC model has six free parameters, of which five describe the shape of the
+electron distribution $A$, $E_{\text{min}}$, $E_{\text{max}}$, $\alpha$, $\beta$, and one describes the magnetic field strength $B$.
+The flux points to which this model is fitted was recorded by 6 different telescopes. The hard X-Ray and soft gamma-ray fluxes up to ${\approx}\SI{E-5}{TeV}$ were 
+observed by the INTEGRAL satellite and the SPI instrument onboard the Comptel satellite.
+Fluxes from \SIrange{E-4}{E-1}{\TeV} were recorded by the \fermi satellite.
+Above ${\approx}\SI{E-1}{TeV}$ ground-based IACTs measure the highest gamma-ray energies. 
+
+The synchrotron and IC emission was calculated using the numerical approximations implemented in the 
+\naima~\cite{naima} package. Fitting was performed using Markov-Chain Monte-Carlo sampling (MCMC) 
+on the posterior using the \emcee~\cite{emcee} sampler. 
+By default, \naima uses a Gaussian likelihood assuming independent measurement errors on the data
+\begin{eqnarray}
+  \operatorname{\mathcal{L}}\left(\mathbf{F} \mid \mathbf{p} \right) = \prod_i^N \operatorname{\mathcal{N}}(\mathbf{F}_i \mid \mu\! =\! \operatorname{SSC}(\mathbf{p}), \, \sigma\! =\! \sigma_i),
+\end{eqnarray}
+where $\mathbf{F}$ is a vector of flux measurements with corresponding uncertainties $\sigma$ and $\mathbf{p}$ is the parameter vector
+for the SSC model.
+The independence assumption for the flux errors is almost certainly not correct. It is, however, a pragmatic approach when 
+working with flux data which is often published without further information about possible correlations between the points. 
+All priors were assumed to be uniform, or uniform in logarithmic space.
+
+Even though implementation of radiative models in \naima is relatively efficient, evaluating the model on hundreds of thousands of Markov chain samples 
+takes hours. To speed up the sampling, I have built a lookup table of values of the SSC model evaluated on a grid of \num{1000000} parameter combinations.
+Building the lookup table takes several hours on a large machine with 24 CPU cores.
+The samplers then evaluated the model using linear interpolation between the grid points. Sampler settings can then be adapted 
+and tuned without recalculating the lookup table. For the final fit a total of \input{build/naima_results/num_samples.txt} samples 
+where taken in \input{build/naima_results/num_chains.txt} parallel chains.
+The resulting fit values are calculated from the median of the marginalized posterior distributions. The provided errors 
+are taken from the 16\th and 84\th percentile.
+
+\begin{center}
+  \begin{tabular}{l@{\hskip 0.5em} r@{\hskip 0.5em} l@{\hskip 3em}l@{\hskip 0.5em} r@{\hskip 0.5em} r}
+    \text{\input{build/naima_results/name_0.txt}} &=&$ \input{build/naima_results/param_0_raw.txt}$ &\text{\input{build/naima_results/name_1.txt}} &=&$\input{build/naima_results/param_1_raw.txt}$\\
+    \addlinespace[0.5em]
+    \text{\input{build/naima_results/name_3.txt}} &=&$ \input{build/naima_results/param_3_raw.txt}$ &\text{\input{build/naima_results/name_2.txt}} &=&$\input{build/naima_results/param_2_raw.txt}$\\
+    \addlinespace[0.5em]
+    \text{\input{build/naima_results/name_4.txt}} &=&$ \input{build/naima_results/param_4_raw.txt}$ &\text{\input{build/naima_results/name_5.txt}} &=&$\input{build/naima_results/param_5_raw.txt}$
+  \end{tabular}  
+\end{center}
+
+\Cref{fig:ssc_fit} shows the fitted model together with the measured flux data. 
+Even though this model uses relatively simple physical assumptions, it accurately represents the observed fluxes in the high-energy end of the SED.
+\Cref{fig:model_variations} shows the influence of each single parameter on the shape of the model spectrum.
+\Cref{tab:ssc_fit_results} in the appendix shows the values of the fitted parameters together with 
+images of the marginalized posterior distributions and the sampled chains.
+\Cref{fig:ssc_correlation} in the appendix shows the correlation between each of the fitted parameters.
+More details on MCMC methods in general, will be given in \cref{sec:mcmc}.
+The code to reproduce these results is available at 
+\githubcenter{kbruegge/simple_ssc_model} 
+% TODO. priors in table?
+% TODO. MCMC section? man so much to write still?
+\begin{figure}
+  \centering
+  \input{build/ssc_fit.pgf}
+  \caption[Fit of SSC model to Crab Nebula data]{The full SSC (\ssclong) model plotted together with the observed data.
+  The colored error bars show the observed fluxes by the six different instruments.
+  The black line shows the median of the values sampled by the Markov chain. The error band around the black line is built from randomly chosen samples in the chain. 
+  For each sampled parameter set, the SSC model is drawn as a gray transparent line. 
+  Burn-in samples have been discarded before producing this plot. Despite the 
+  simple model assumptions, the SED accurately matches the data in the VHE gamma-ray end.}
+  \label{fig:ssc_fit}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=\textwidth]{build/model_variations.pdf}
+  \caption[SSC model with varying parameters]{The full SSC model plotted together with measured fluxes. In each image one of the parameters 
+  of the model is varied while the others remain fixed. As stated in the text, this model assumes one population of high-energy electrons 
+  which are distributed according to a log-parabolic energy spectrum with high and low energy cutoffs. Each of the six 
+  free parameters is varied as indicated by the colorbars.}
+  \label{fig:model_variations}
+\end{figure}
+
+

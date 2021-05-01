@@ -1,0 +1,210 @@
+
+\chapter{Observation of Very-High-Energy Gamma Rays}
+\label{ch:observatories}
+Cosmic rays have been observed using space-born as well as ground-based scintillation detectors for several decades. The
+highest-energy cosmic rays have been recorded by the AUGER instrument reaching up to \SI{e20}{\eV} or \SI{16}{\joule} of
+kinetic energy. While their isotropic arrival directions indicate their extragalactic origin, no point-source of cosmic rays
+could be identified as of today~\cite{auger_isotropic}.
+Measuring gamma-rays or neutrinos presents one useful advantage over observations of electrically charged cosmic rays.
+Photons and neutrinos are oblivious to electric and magnetic fields in space and travel in a straight line from their source
+to the observer. This makes them prime candidates for learning more about the processes and objects in which
+they are created. Neutrinos, however, are notoriously hard to capture due to their low mass and neutral charge. They only interact through the weak
+force requiring large detection volumes. So far no extragalactic point source of neutrinos could be identified though strong hints indicate
+they are produced in active galactic nuclei~\cite{icecube2018multimessenger}.
+The observation of high-energy gamma rays  requires much lower detector volumes and allows for observations into energy ranges of many \si{TeV}.
+Since the first successful gamma-ray astronomy missions in the early 1960s, the improvement of space-faring technology and sensor equipment
+now allows us to identify thousands of distinct sources of high-energy gamma radiation.
+% nach oben tun
+% The most prominent sources being active galactic nuclei or supernova remnants and pulsars within our own galaxy. % TODO maybe remove
+
+\section{Satellite Experiments}
+The first gamma-ray telescope was launched into space onboard the Explorer XI mission in 1961~\cite{explorer}.
+It carried a sandwiched scintillator with an area of only \SI{45}{cm^2} and detected about
+\num{1000} gamma-rays during its 7-months-long mission. While not being able to pinpoint any sources, it is considered to
+be the first measurement of gamma rays of cosmic origin. Gamma-ray bursts (GRBs) were serendipitously
+discovered by satellites of the Vela mission in 1967, which were originally built to monitor the atmosphere for nuclear blasts~\cite{vela}.
+More gamma-ray missions followed. Among them the Compton Gamma-Ray Observatory (CGRO), Swift, AGILE and the Integral mission. % todo. search references
+The most recent mission, the Fermi Gamma-ray Space Telescope, was launched in 2008 and put into orbit about \SI{550}{km} above Earth's surface.
+It is equipped with two detectors, the Gamma-ray Burst Monitor (GBM) and the Large Area Telescope (LAT).
+The GBM's primary purpose is to detect gamma-ray bursts within a large field of view. It can detect photons
+with energies between \SI{8}{keV} and \SI{40}{MeV}. As the name suggests, it was built to detect short bursts
+of gamma radiation in the sky. The bursts can last anywhere from minutes to seconds and are among the most powerful and bright events
+ever seen in the sky. About 200 to 300 GRBs are detected per year by the GBM~\cite{fermi_gbm}.
+The LAT detector onboard FERMI covers an energy range of \SI{20}{MeV} to \SI{300}{GeV} with a field of view of
+\SI{2.4}{sr} covering about \SI{20}{\percent} of the sky any one time.
+It was designed to catalog and monitor several thousand sources of gamma rays and record the energy spectra~\cite{fermi_lat}.
+During its active years it has become an invaluable instrument for the cataloging and discovery of gamma-ray sources.
+The most recently published catalog~\cite{4fgl} contains more than \num{5000} sources. Figure~\ref{fig:4fgl} shows a map
+of all sources found in the 4FGL catalog along with their gamma-ray flux between \SI{100}{MeV} and \SI{100}{GeV}.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth]{build/4fgl.pdf}
+  \caption[Skymap of Fermi's 4FGL source catalog]{A sky map depicting each distinct source found in the 4FGL catalog combining data measured by the
+  Fermi-LAT instrument over the course of 8 years. This is a Mollweide projection in galactic coordinates clearly showing
+  a clustering of sources around the galactic plane. The colors indicate the total flux emitted by each source
+  in an energy range of \SIrange{0.1}{100}{GeV}.}
+  \label{fig:4fgl}
+\end{figure}
+
+
+\section{Imaging Atmospheric Cherenkov Telescopes}
+\label{sec:iact}
+Imaging Atmospheric Cherenkov Telescopes (IACTs) use the atmosphere as their detection medium. 
+Each cosmic ray or gamma ray hitting Earth's atmosphere interacts with the nuclei in the surrounding 
+gas. At sufficient energies, this interaction will create secondary particles, which in turn interact
+with the surrounding medium. 
+This process kicks off a cascade of particles moving towards the surface. 
+This so-called \emph{air shower} keeps growing until the particles' energies are insufficient to produce new 
+offspring. Very energetic primary particles can induce cascades that reach the Earth's surface. 
+The interactions governing the air shower induced by a primary hadron are severely different from 
+those induced by a primary gamma ray or electron.
+An incoming electron or gamma ray interacts mainly through bremsstrahlung and pair production. 
+This type of air shower is of purely electromagnetic nature. An incoming electron radiates a 
+gamma-ray through bremsstrahlung in the presence of a nucleus. The new photon emerging from this 
+\emph{collision} either reaches the ground and gets absorbed or, given enough energy, 
+creates a new electron-positron pair. 
+This process continues until no new particles can be formed below an energy of roughly \SI{1}{MeV}.
+A cosmic hadron, i.e. a proton or heavier nucleus, also starts a process of successive collisions. 
+The number of sub-particles created in each collision depends on the parent particles' energy~\cite[78]{grieder_air_shower}. 
+\autoref{eq:hadron_collision} represents a proton-nucleon interaction, where $N$ is the target nucleus in the atmosphere
+and $X$ represents some remaining fragments of $N$. 
+\begin{equation}
+  \label{eq:hadron_collision}
+  \Pproton + N \rightarrow \Pproton + X + \Pgp^{\pm,0} + \PK^{\pm,0}\ldots\text{\cite{kampert_cosmic}}
+\end{equation}
+The process will propagate through the atmosphere until no more sub-particles can be created below the rest energy of the pion 
+near \SI{140}{MeV}.
+Each hadronic air shower also has an electromagnetic sub-shower due to the gamma rays produced in pion decay
+\begin{equation}
+  \label{eq:pion_decay}
+  \Pgpz \rightarrow 2 \gamma.
+\end{equation}
+The air showers produced from hadronic primaries can be distinguished from the purely electromagnetic counterparts 
+through various observables. Most important is the \emph{lateral} spread of the shower and the 
+time development of the number of particles present in the shower, both of which can be observed by ground-based telescopes.
+The charged component of an air shower produces flashes of Cherenkov light and makes it possible to \emph{take an image}
+of the shower as its moving through the atmosphere. 
+Early on, scientists working with radioactive material noticed a faint blue glow in water near strong radioactive sources~\cite[835]{grieder_air_shower}. 
+Pavel Cherenkov began studying it systematically in 1934. He later shared the Nobel price for its discovery with Frank and Tamm in 1958~\cite{nobel_1958}. 
+Cherenkov light is emitted by charged particles moving through a medium at superluminal speeds. 
+While the speed of light in vacuum $c_0$ is constant in all reference frames, the speed of light in 
+transparent media is slower. The speed of light in a material is expressed in terms of its 
+refraction index $n=\nicefrac{c_0}{v}$. The charged high-energy particles present in an air shower can 
+have velocities higher than the speed of light in air. If they do, they radiate Cherenkov light.
+This bluish light is emitted along the direction of the moving particle.
+The opening angle of the Cherenkov light cone generated by a single charged particle of velocity $v$ is given as 
+\begin{equation}
+  \label{eq:opening_angle}
+  \theta = \arccos\left(\frac{1}{\beta n(h)}\right)
+\end{equation}
+where $\beta = \nicefrac{v}{c_0}$ and $n(h)$ is the refractive index of air at height  $h$ above sea level.
+As the refraction index $n(h)$ increases with pressure, the opening angle of Cherenkov light decreases at high altitudes. 
+At an altitude of \SI{10}{\kilo\metre}, the opening angle will be close to \SI{0.8}{\degree}. At sea level the angle is closer to \SI{1.35}{\degree}.
+Hence, the Cherenkov light is strongly focused along the trajectory of the moving charge. 
+%\todo{photon distribtuion on the ground. read soem corsika file using eventio.}
+A typical light flash produced by an air shower glows for approximately \SIrange{20}{30}{\nano\second}.
+Capturing this faint and fast glimpse of an air shower requires sensitive instruments.
+Cherenkov telescopes require purpose-built cameras with single-photon resolution and fast readout systems to 
+image air showers.   
+The first detections of a point-source of cosmic gamma radiation was performed with the Whipple telescope in Arizona in 1989~\cite{whipple_crab}.
+It was the first detection of the Crab Nebula in the \si{TeV} range of light.
+The next generation of IACT experiments followed promptly with the \hegra~\cite{hegra-crab-data}, \magic~\cite{magic}, \hess~\cite{hess}, \veritas~\cite{veritas} 
+and \fact~\cite{fact} projects, of which all but \hegra are still operating.
+Before the first successful observation of the Crab Nebula, many challenges and problems inherent to IACTs had to be overcome. 
+The first IACTs struggled to differentiate between showers induced by cosmic rays from those induced by gamma rays. 
+Even for very bright sources of gamma rays, the amount of cosmic rays triggering 
+the telescope is many orders of magnitude higher than the desired signal. Cosmic rays effectively act as the major 
+source of background noise in IACT data. 
+Development of methods to perform effective background suppression took extensive work on simulations of air showers. 
+These simulations are necessary since there is no artificial source of gamma rays or protons 
+in the energy ranges probed by IACTs. Experiments sensitive to lower energies can be calibrated in a laboratory setting, where their response 
+to incoming particles can be measured in great detail. For IACTs simulations are the only way to gauge the instrument's response.
+Today, background suppression, or gamma-hadron separation, is performed using machine-learning algorithms which have been trained 
+on simulations. \Cref{ch:ml} goes into more detail about the algorithms used.
+By today, the success of Cherenkov astronomy is self-evident given its huge 
+contribution to our understanding of active galactic nuclei, supernova remnants and the gamma-ray sky in general. One recent result from the 
+\hess collaboration~\cite{hess_gps} is displayed in figure~\ref{fig:hgps}. It shows a gamma-ray view of the galactic plane 
+in energies above \SI{1}{TeV}. 
+% In chapter~\ref{sec:spectral} I will go into more detail about the \fact, \magic, \hess, and \veritas telescopes. 
+% Building an IACT always involves a trade-off between its instrumented volume and sensitivity to lower energies. 
+% Since larger mirrors collect more Cherenkov light, fainter showers can be recorded. The field-of-view of 
+\Cref{ch:cta} contains details on the next-generation Cherenkov Telescope Array (CTA) project and its data analysis.
+
+The following sub-sections describe the four currently operating Cherenkov telescopes and the astronomer's apparent fondness for intricate 
+abbreviations.
+
+\subsection{\magic}
+The Major Atmospheric Gamma Imaging Cherenkov Telescopes~\cite{magic}, or \magic, are a pair of Cherenkov telescopes located on the Canary island of La Palma off the west coast of Africa.
+It is part of the Roque des los Muchachos observatory on the island's vulcanic remnant at a height of approximately \SI{2200}{\metre} above sea level.
+The two telescopes feature large segmented mirrors with a total diameter of \SI{17}{\metre} per telescope with a field of view of \SI{3.5}{\degree}. 
+The first of the two telescopes was operated in monoscopic mode from 2004 to 2009 until the second telescope was ready for operations. 
+\magic can detect relatively faint sources due to its large mirrors. 
+
+\subsection{\veritas}
+\veritas, the Very Energetic Radiation Imaging Telescope Array System~\cite{veritas}, is an array of 
+four telescopes. Each telescope has a mirror with a diameter of \SI{12}{\metre} and a field of view of \SI{3.5}{\degree}. The \veritas 
+telescopes are located at the Fred Lawrence Whipple Observatory, Arizona, in just about 3 hours driving distance from the state's capital Phoenix.
+The four telescopes are located on the corners of a rectangle approximately \SI{100}{\metre} apart from each other. \veritas observes both active galactic nuclei 
+as well as sources in our own galaxy.  
+
+\subsection{\fact}
+The First G-APD Cherenkov Telescope (\fact) was the first of its kind to employ silicon photo-multipliers for VHE gamma-ray astronomy. 
+It is located next to the \magic telescopes and shares much of its infrastructure with it. \fact is a single IACT with a small mirror with a diamter of \SI{4}{\metre} 
+and a field of view of \SI{4.5}{\degree}.
+FACT is dedicated to observe and monitor bright active galactic nuclei on the northern sky. \fact is fully autonomous and does not require operators
+on site. It observes a list of predefined sources at night and automatically contacts a remote shifter via a phone call in case any problems 
+appear during observation~\cite{fact_robotic}. 
+
+\subsection{\hess}
+The High Energy Stereoscopic System~\cite{hess}, \hess, is the largest of all currently operating Cherenkov telescopes and the only one operating 
+south of the equator.
+It consists of 5 telescopes situated at an altitude of \SI{1800}{\metre} in the Namibian highlands.  
+Its location in the southern hemisphere allows for long-term observations of the center of the Milky Way as seen in \cref{fig:hgps}.
+The largest of \hess's telescopes has a diameter of \SI{28}{\metre} covering an area of about \SI{615}{\square\metre}.
+The sizable aperture reduces the depth of field considerably. To adjust the focus of the optical system, 
+the camera can be moved along the optical axis of the telescope electronically.   
+The four smaller telescopes each have a diameter of \SI{13}{\metre}. These four telescopes are arranged in a square
+with an edge length of \SI{120}{\metre} with the large telescope placed in its center.
+The first phase of \hess operations began in 2004. The fifth telescope was added in 2012, reducing 
+the energy threshold of \hess to several tens of \si{GeV}. 
+A unique design feature of \hess is its ability to quickly dismount the cameras from the telescopes. This simplifies 
+maintenance works and hardware upgrades.
+
+\begin{figure}
+  \centering
+  \includegraphics{build/hgps.pdf}
+  \caption[The \hess galactic plane survey]{The \hess galactic plane survey. \hess measured the diffuse gamma-ray flux in the galactic plane over several years and published the
+  data in 2018~\cite{hess_gps}. The colors show the integral flux emitted in energies above \SI{1}{TeV}~\cite[\S4.3.2]{hess_gps}.
+  The figure shows a region near the galactic plane in longitudes \protect{\input{build/hgps_lon_range.txt}}
+  and latitudes \protect{\input{build/hgps_lat_range.txt}}. On the left-hand side of the upper panel, a supernova remnant
+  RX J0852.0-4622 is clearly recognizable due to its shell-like structure.
+  Sagittarius A in the center of our galaxy is marked in the third panel.}
+  \label{fig:hgps}
+\end{figure}
+
+\subsection{CTA}
+
+The Cherenkov Telescope Array (CTA) will be the largest of all earth-bound gamma-ray observatories. 
+It is currently in its planning stage with the first prototype telescopes under construction. 
+Its current design includes over 100 telescopes that will be stationed at La Palma and the Paranal observatory in Chile.
+More details about CTA will follow in \cref{ch:cta}. Suffice it to say at this point, it will be the largest array of optical telescopes that 
+has ever been operated. With an estimated cost of over \texteuro\,\num{300} million~\cite{cta_website}, it will also be the
+most expensive operation in the history of ground-based astroparticle physics.
+
+\section{Water-Cherenkov Experiments}
+The particles produced in air showers can be captured using scintillation water tanks on the surface.
+A dense spacing of tanks and light sensors helps to measure details about the shower structure, which can help to differentiate
+between air showers induced by hadrons and air showers induced by photons.
+The High Altitude Water Cherenkov Experiment (HAWC)~\cite{hawc} is the latest gamma-ray observatory using
+water tanks. It is located in Mexico at an altitude of \SI{4100}{\metre} and has been operating since 2015.
+HAWC consists of 300 water tanks with a total water content of 56 million liters. Each tank is fitted with 4 photomultiplier tubes.
+The charged component of air showers produces Cherenkov light in the tanks. The arrival time of the shower front in the tanks
+is the prime indicator for the direction of the incident shower. This method of water Cherenkov detection makes it easy
+to fill relatively large detector volumes hence making HAWC more sensitive to high gamma-ray energies beyond
+the capabilities of the FERMI satellite. 
+HAWC's detection capability peaks near \SI{10}{TeV} of gamma-ray energy.
+The absorption of high-energy photons due to interaction with extragalactic background light reduces the maximum distance at which HAWC can detect sources.
+Thus, HAWC is best suited for observing bright sources within our own galaxy.
+One considerable advantage of HAWC is its large field of view and its capability to operate during daytime.
+

@@ -1,0 +1,68 @@
+# Telescope positions in La Palma after May 2017 fine-tuning of MST-2/4/9 positions
+# with respect to prod-3b AL4-BN15 layout.
+# Checked against infrastructure drawings and UTM coordinates, Nov. 2017.
+# MC x/y coordinates centered on new central MST 15 position.
+# This new zero-point essentially results in a shift by dx=-44.85 m and dy=-0.90 m
+# with respect to positions as used in prod-3 and prod-3b.
+#
+# Column 1: Longitude (WGS84) in degrees (negative = West).
+# Column 2: Latitude (WGS84) in degrees.
+# Column 3: UTM (Zone 28R, WGS84) "Easting" value in meters ("500000" = 15 deg. West).
+# Column 4: UTM (Zone 28R, WGS84) "Northing" value in meters ("0" = Equator for Northern Hemisphere).
+# Column 5: Elevation of telescope mount in meters.
+# Column 6: MC x position [->North] in meters.
+# Column 7: MC y position [->West] in meters.
+# Column 8: MC z position [above 2147 m a.s.l.] for center of telescope "fiducial sphere", in meters.
+# Column 9: MC fiducial sphere radius in meters.
+# Column 10: Label shown in plots.
+# followed by comments from CORSIKA inputs file, including altitude a.s.l. as read off the map.
+#
+# Transformation from MC x/y positions (local transverse Mercator projection, k_0=1.0) to long/lat with:
+#    cs2cs -f %.7f +proj=tmerc +ellps=WGS84 +datum=WGS84 +lon_0=-17.8920302 +lat_0=28.7621661 +axis=nwu +units=m +to +proj=longlat +datum=WGS84
+# Transformation in the other direction (long/lat/altitude to x/y/z) with:
+#    cs2cs +proj=longlat +datum=WGS84 +to +proj=tmerc +ellps=WGS84 +datum=WGS84 +lon_0=-17.8920302 +lat_0=28.7621661 +axis=nwu +units=m
+# Note the reference position in this transformation is the central MST 
+# of the old (Prod-3) layout and not of the current one.
+# Transformation from long/lat to UTM (Universal Transverse Mercator) with:
+#    cs2cs +proj=longlat +datum=WGS84 +to +proj=utm +zone=28
+# From UTM to long/lat with:
+#    cs2cs -f %.7f +proj=utm +zone=28 +to +proj=longlat +datum=WGS84
+# The appropriate UTM zone is 28R (longitude 18W/12W, latitude 24N/32N).
+# (Note that UTM, based on a WW II aerial mapping system, is using a cylinder
+# cutting a bit through the Earth (k_0=0.9996) in each of its 60 longitude zones
+# and results in a somewhat distorted representation. Pythagoras' formula is not
+# really appropriate for calculating the distance between two points on a map.)
+# For the 'cs2cs' (coordinate-system-to-coordinate-system) application,
+# coming with the 'proj' package on most Linux distributions, see http://proj4.org/ .
+# (With cs2cs in all cases reading from standard input, taking the first two or three
+# values in each line as actual input data, and writing to standard output. You can use
+# this file here, lines starting with longitude and latitude, as input for the two
+# commands above that start with "+proj=longlat", into either "utm" or "tmerc".)
+#
+# Longitude     Latitude      UTM East     UTM North      Alt.         x        y        z      R      "Name"     Comments
+#  [deg]          [deg]         [m]          [m]          [m]         [m]      [m]      [m]    [m]
+#
+# LSTs:
+#
+-17.8914970	28.7615261    217659.59    3184995.06     2185.0     -70.93   -52.07    54.00  12.50   "LST 1"    Alt=2185.0
+-17.8927074	28.7618479    217542.210   3185033.610    2174.0     -35.27    66.14    43.00  12.50   "LST 2"    Alt=2174.0
+-17.8925472	28.7628453    217560.550   3185143.810    2170.7      75.28    50.49    39.70  12.50   "LST 3"    Alt=2170.7
+-17.8913693	28.7624450    217674.540   3185096.630    2174.0      30.91   -64.54    43.00  12.50   "LST 4"    Alt=2174.0
+#
+# MSTs (updated numbering scheme):
+#
+-17.8920882	28.7602574    217598.417   3184855.810    2198.3    -211.54     5.66     61.3   7.00   "MST 1"    Alt=2198.3
+-17.8937608	28.7607833    217436.441   3184918.090    2172      -153.26   169.01     35.0   7.00   "MST 2"    Alt=2172     (modified after prod3b, "2y")
+-17.8940649	28.7624103    217411.117   3185099.180    2160.2      27.07   198.71     23.2   7.00   "MST 3"    Alt=2160.2
+-17.8927783	28.7637506    217540.420   3185244.720    2157       175.61    73.06     20     7.00   "MST 4"    Alt=2157     (modified after prod3b, "4y")
+-17.8901932	28.7632787    217791.679   3185186.264    2176.6     123.31  -179.40     39.6   7.00   "MST 5"    Alt=2176.6
+-17.8900949	28.7614837    217796.447   3184987.031    2190.2     -75.63  -189.00     53.2   7.00   "MST 6"    Alt=2190.2
+-17.8903165	28.7602200    217771.396   3184847.458    2211.1    -215.69  -167.36     74.1   7.00   "MST 7"    Alt=2211.1
+-17.8954256	28.7612727    217275.122   3184976.300    2157.7     -99.01   331.60     20.7   7.00   "MST 8"    Alt=2157.7
+-17.8883926	28.7641657    217969.963   3185280.330    2195       221.62  -355.25     58.0   7.00   "MST 9"    Alt=2195     (modified after prod3b, "9y")
+-17.8884212	28.7623482    217962.278   3185078.902    2210.3      20.19  -352.46     73.3   7.00   "MST 10"   Alt=2210.3
+-17.8885991	28.7603859    217939.617   3184861.776    2225.1    -197.30  -335.09     88.1   7.00   "MST 11"   Alt=2225.1
+-17.8955090	28.7594254    217261.991   3184771.699    2170.3    -303.75   339.75     33.3   7.00   "MST 12"   Alt=2170.3
+-17.8933629	28.7590452    217470.622   3184724.448    2206.0    -345.89   130.16     69.0   7.00   "MST 13"   Alt=2206.0
+-17.8912291	28.7587746    217678.349   3184689.381    2229.6    -375.89   -78.24     92.6   7.00   "MST 14"   Alt=2229.6
+-17.8920302	28.7621661    217609.227   3185067.278    2177.0       0.00     0.00     40.0   7.00   "MST 15"   Alt=2177.0   [central MST]
